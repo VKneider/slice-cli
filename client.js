@@ -1,0 +1,54 @@
+import { program } from "commander";
+import initializeProject from "./commands/init/init.js";
+import createComponent from "./commands/createComponent/createComponent.js";
+import modifyComponent from "./commands/modifyComponent/modifyComponent.js";
+import listComponents from "./commands/listComponents/listComponents.js";
+
+const sliceClient = program;
+
+sliceClient
+    .version('1.0.0')
+    .description('Client for managing framework components');
+
+sliceClient
+    .command('init <projectType>')
+    .description('Initialize the project')
+    .action((projectType) => {
+        initializeProject(projectType);
+    });
+
+    sliceClient
+    .command('create <componentName>')
+    .description('Create a new component')
+    .option('-category <category>', 'Specify the category of the component')
+    .option('-properties <properties>', 'Specify properties for the component (comma-separated)')
+    .action((componentName, options) => {
+        const { Category, Properties } = options;
+        const propertiesList = Properties ? Properties.split(',') : [];
+        createComponent(componentName, Category, propertiesList);
+        
+    });
+
+// Comando para modificar un componente
+sliceClient
+    .command('modify <componentName>')
+    .description('Modify an existing component')
+    .option('-category <category>', 'Component category')
+    .option('-add <addProperties>', 'Add Properties to the component (comma-separated)')
+    .option('-remove <removeProperties>', 'Remove Properties from the component (comma-separated)')
+    .action((componentName, options) => {
+        const { Add, Remove,Category } = options;
+        const addProperties = Add ? Add.split(',') : [];
+        const removeProperties = Remove ? Remove.split(',') : [];
+        modifyComponent(componentName,Category, addProperties, removeProperties);
+    });
+
+// Comando para listar todos los componentes
+sliceClient
+    .command('list')
+    .description('List all components')
+    .action(() => {
+        listComponents();
+    });
+
+sliceClient.parse(process.argv);
