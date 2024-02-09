@@ -1,5 +1,5 @@
 {
-  "name": "slice-cli",
+  "name": "slicejs-cli",
   "version": "1.0.0",
   "description": "Command client for developing web applications with Slice.js",
   "main": "client.js",
