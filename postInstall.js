@@ -1,7 +1,8 @@
 import fs from 'fs';
 
 // Ruta al package.json del proyecto que está instalando tu paquete
-const projectPackageJsonPath = './node_modules/package.json';
+const projectPackageJsonPath = './package.json';
+
 
 // Lee el contenido del package.json del proyecto
 fs.promises.readFile(projectPackageJsonPath, 'utf8')
