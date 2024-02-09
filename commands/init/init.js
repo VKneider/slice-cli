@@ -22,8 +22,8 @@ export default async function initializeProject(projectType) {
             return;
         }
 
-        // Copiar el contenido del directorio de origen al directorio de destino
-        await fs.copy(sliceDir, destinationDir);
+        // Copiar el contenido del directorio de origen al directorio de destino 
+        await fs.copy(sliceDir, destinationDir, { recursive: true });
 
         console.log('Proyecto inicializado correctamente.');
     } catch (error) {
