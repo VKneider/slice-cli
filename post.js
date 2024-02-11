@@ -20,7 +20,8 @@ fs.promises.readFile(projectPackageJsonPath, 'utf8')
         projectPackageJson.scripts['slice:create'] = 'node node_modules/slicejs-cli/client.js create';
         projectPackageJson.scripts['slice:modify'] = 'node node_modules/slicejs-cli/client.js modify';
         projectPackageJson.scripts['slice:list'] = 'node node_modules/slicejs-cli/client.js list';
-
+        projectPackageJson.scripts['slice:delete'] = 'node node_modules/slicejs-cli/client.js delete';
+        
         // Escribe el nuevo contenido en el package.json del proyecto
         return fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(projectPackageJson, null, 2), 'utf8');
     })

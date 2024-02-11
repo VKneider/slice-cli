@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
+import Print from '../Print.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default async function initializeProject(projectType) {
@@ -18,16 +18,16 @@ export default async function initializeProject(projectType) {
 
         // Verificar si el directorio de destino ya existe
         if (fs.existsSync(destinationDir)) {
-            console.error('El proyecto ya cuenta con un directorio "Slice". No es posible inicializar el proyecto nuevamente');
+            Print.error('El proyecto ya cuenta con un directorio "Slice". No es posible inicializar el proyecto nuevamente');
             return;
         }
 
         // Copiar el contenido del directorio de origen al directorio de destino 
         await fs.copy(sliceDir, destinationDir, { recursive: true });
 
-        console.log('Proyecto inicializado correctamente.');
+        Print.success('Proyecto inicializado correctamente.');
     } catch (error) {
-        console.error('Error al inicializar el proyecto:', error);
+        Print.error('Error al inicializar el proyecto:', error);
     }
 }
 

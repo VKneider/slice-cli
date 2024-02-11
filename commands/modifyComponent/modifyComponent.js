@@ -1,51 +1,40 @@
 import fs from 'fs';
 import path from 'path';
-
+import Validations from '../Validations.js';
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
+import Print from '../Print.js';
 
 function modifyComponent(componentName, category, addProperties, removeProperties) {
     if (!componentName) {
-        console.error('Component name is required');
+        Print.error('Component name is required');
         return;
     }
 
-    if (!isValidComponentName(componentName)) {
-        console.error('Invalid component name. Please use only alphanumeric characters and start with a letter.');
+    if (!Validations.isValidComponentName(componentName)) {
+        Print.error('Invalid component name. Please use only alphanumeric characters and start with a letter.');
         return;
     }
 
 
-    const categoryVariations = {
-        'Service': ['service', 'servicio', 'serv'],
-        'Visual': ['visual', 'vis'],
-        'Provider': ['provider', 'proveedor', 'prov'],
-        'Structural': ['structural', 'estructural', 'est']
-    };
+    
+    
+    let flagCategory = Validations.isValidCategory(category);
 
-
-
-    // Verificar si la categoría es válida
-    let categoryIsValid = false;
-    Object.keys(categoryVariations).forEach(validCategory => {
-        if (categoryVariations[validCategory].includes(category.toLowerCase())) {
-            category = validCategory
-            categoryIsValid = true;
-        }
-    });
-
-    if (!categoryIsValid) {
-        console.error('Invalid category. Please use one of the following categories: Service, Visual, Provider, Structural');
+    if (!flagCategory.isValid) {
+        Print.error('Invalid category. Please use one of the following categories: Service, Visual, Provider, Structural');
         return;
     }
+
+    category = flagCategory.category;
 
     const componentDir = path.join(__dirname, '../../../../Slice/Components', category, componentName);
     const fileName = `${componentName}.js`;
+
     let componentPath = path.join(componentDir, fileName);
     componentPath=componentPath.slice(1);
 
-    console.log(componentPath);
     if (!fs.existsSync(componentPath)) {
-        console.error(`Component '${componentName}' does not exist.`);
+        Print.error(`Component '${componentName}' does not exist.`);
         return;
     }
 
@@ -56,33 +45,29 @@ function modifyComponent(componentName, category, addProperties, removePropertie
     addProperties.forEach(property => {
         if (!existingProperties.includes(property)) {
             existingProperties.push(property);
-            console.log(`Property '${property}' added to component '${componentName}'.`);
+            Print.success(`Property '${property}' added to component '${componentName}'.`);
             // Verificar si existen getters y setters para la propiedad y agregarlos si es necesario
             componentContent = addGetterSetterIfNeeded(componentContent, property);
         } else {
-            console.log(`Property '${property}' already exists in component '${componentName}'.`);
+            Print.error(`Property '${property}' already exists in component '${componentName}'.`);
         }
     });
 
     removeProperties.forEach(property => {
         if (existingProperties.includes(property)) {
             existingProperties = existingProperties.filter(prop => prop !== property);
-            console.log(`Property '${property}' removed from component '${componentName}'.`);
+            Print.success(`Property '${property}' removed from component '${componentName}'.`);
             componentContent = removePropertyIfNeeded(componentContent, property);
         } else {
-            console.log(`Property '${property}' does not exist in component '${componentName}'.`);
+            Print.error(`Property '${property}' does not exist in component '${componentName}'.`);
         }
     });
 
     componentContent = updateComponentProps(componentContent, existingProperties);
     fs.writeFileSync(componentPath, componentContent);
-    console.log(`Component '${componentName}' modified successfully.`);
+    Print.success(`Component '${componentName}' modified successfully.`);
 }
 
-function isValidComponentName(componentName) {
-    const regex = /^[a-zA-Z][a-zA-Z0-9]*$/;
-    return regex.test(componentName);
-}
 
 function extractProperties(componentContent) {
     const propRegex = /this\.debuggerProps\s*=\s*\[(.*?)\];/s;
@@ -104,13 +89,21 @@ function addGetterSetterIfNeeded(componentContent, property) {
 }
 
 function removePropertyIfNeeded(componentContent, property) {
-    // Verificar si no está en debuggerProps pero tiene getters y setters
-    const propInDebuggerProps = componentContent.includes(`'${property}'`);
-    const hasGetterSetter = hasGetterSetterForProperty(componentContent, property);
-    if (!propInDebuggerProps && hasGetterSetter) {
-        // Eliminar los getters y setters del componente
-        componentContent = removeGetterSetter(componentContent, property);
+    // Eliminar la propiedad de debuggerProps si está presente
+    const propRegex = /this\.debuggerProps\s*=\s*\[(.*?)\];/s;
+    const match = componentContent.match(propRegex);
+    if (match && match[1]) {
+        let props = match[1].split(',').map(prop => prop.trim().replace(/['"]/g, ''));
+        const propIndex = props.indexOf(property);
+        if (propIndex !== -1) {
+            props.splice(propIndex, 1);
+            componentContent = componentContent.replace(propRegex, `this.debuggerProps = [${props.map(prop => `'${prop}'`).join(', ')}];`);
+        }
     }
+
+    // Eliminar los getters y setters de la propiedad
+    componentContent = removeGetterSetter(componentContent, property);
+
     return componentContent;
 }
 

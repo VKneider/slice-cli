@@ -3,6 +3,7 @@ import initializeProject from "./commands/init/init.js";
 import createComponent from "./commands/createComponent/createComponent.js";
 import modifyComponent from "./commands/modifyComponent/modifyComponent.js";
 import listComponents from "./commands/listComponents/listComponents.js";
+import deleteComponent from "./commands/deleteComponent/deleteComponent.js";
 
 const sliceClient = program;
 
@@ -14,6 +15,7 @@ sliceClient
     .command('init <projectType>')
     .description('Initialize the project')
     .action((projectType) => {
+        if(!projectType) projectType = 'basic';
         initializeProject(projectType);
     });
 
@@ -25,8 +27,7 @@ sliceClient
     .action((componentName, options) => {
         const { Category, Properties } = options;
         const propertiesList = Properties ? Properties.split(',') : [];
-        createComponent(componentName, Category, propertiesList);
-        
+       if( createComponent(componentName, Category, propertiesList))    listComponents();   
     });
 
 // Comando para modificar un componente
@@ -40,7 +41,15 @@ sliceClient
         const { Add, Remove,Category } = options;
         const addProperties = Add ? Add.split(',') : [];
         const removeProperties = Remove ? Remove.split(',') : [];
-        modifyComponent(componentName,Category, addProperties, removeProperties);
+        modifyComponent(componentName,Category, addProperties, removeProperties)
+    });
+
+    sliceClient.command('delete <componentName>')
+    .description('Delete an existing component')
+    .option('-category <category>', 'Component category')
+    .action((componentName, options) => {
+        const { Category } = options;
+        if(deleteComponent(componentName, Category))    listComponents();
     });
 
 // Comando para listar todos los componentes

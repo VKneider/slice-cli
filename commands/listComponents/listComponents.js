@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
+import Print from '../Print.js';
 export default function listComponents() {
 
   const SlicePath = path.join(__dirname, '../../../../Slice/Components');
@@ -37,5 +37,5 @@ export default function listComponents() {
   const mapObject = Object.fromEntries(mapAsArray);
 
   fs.writeFileSync(`${SlicePath}/components.js`, `const components = ${JSON.stringify(mapObject, null, 2)}; export default components;`);
-  console.log('Components list updated');
+  Print.success('Components list updated');
 }
