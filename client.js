@@ -12,11 +12,10 @@ sliceClient
     .description('Client for managing framework components');
 
 sliceClient
-    .command('init <projectType>')
+    .command('init')
     .description('Initialize the project')
-    .action((projectType) => {
-        if(!projectType) projectType = 'basic';
-        initializeProject(projectType);
+    .action(() => {
+        initializeProject("basic");
     });
 
     sliceClient

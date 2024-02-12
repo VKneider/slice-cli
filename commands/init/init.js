@@ -10,11 +10,13 @@ export default async function initializeProject(projectType) {
         let sliceDir;
         let basicPosibilities = ["basic", "Basic", "-b", "-B", "b", "B"];
         if (basicPosibilities.includes(projectType)) {
-            sliceDir = path.join(__dirname, '../../PROJECT_TEMPLATES/Basic');
+            sliceDir = path.join(__dirname, '../../PROJECT_TEMPLATES/Basic/Slice');
         }
 
         // Directorio de destino en la raíz del proyecto
         const destinationDir = path.join(__dirname, '../../../../Slice');
+        const destinationSrc = path.join(__dirname, '../../../../src')
+        const srcDir = path.join(__dirname, '../../PROJECT_TEMPLATES/Basic/src')
 
         // Verificar si el directorio de destino ya existe
         if (fs.existsSync(destinationDir)) {
@@ -24,6 +26,7 @@ export default async function initializeProject(projectType) {
 
         // Copiar el contenido del directorio de origen al directorio de destino 
         await fs.copy(sliceDir, destinationDir, { recursive: true });
+        await fs.copy(srcDir, destinationSrc, { recursive: true });
 
         Print.success('Proyecto inicializado correctamente.');
     } catch (error) {

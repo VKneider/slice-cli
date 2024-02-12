@@ -12,8 +12,8 @@ export default class Slice {
         this.controller = new Controller();
         this.stylesManager = new StylesManager();
         this.paths = {
-            components: "./Components",
-            themes:"./Themes"
+            components: "../../../../Slice/Components",
+            themes: "../../../../Slice/Themes"
         };
         
 
