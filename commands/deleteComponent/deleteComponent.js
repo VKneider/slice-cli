@@ -23,8 +23,16 @@ function deleteComponent(componentName, category) {
     }
     category = flagCategory.category;
 
+    // Determinar la ruta del archivo
+    //RUTA PARA CUANDO SE COLOQUE DE USUARIO
+    // ../../../../src/Components
+    //PARA DEVELOPERS
+    // ../../../../Slice/Components
+    
+
+    
     // Construir la ruta del directorio del componente
-    let componentDir = path.join(__dirname, '../../../../Slice/Components', category, componentName);
+    let componentDir = path.join(__dirname, '../../../../src/Components', category, componentName);
     componentDir = componentDir.slice(1);
 
     // Verificar si el directorio del componente existe

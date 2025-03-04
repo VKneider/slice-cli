@@ -27,11 +27,11 @@ function modifyComponent(componentName, category, addProperties, removePropertie
 
     category = flagCategory.category;
 
-    const componentDir = path.join(__dirname, '../../../../Slice/Components', category, componentName);
-    const fileName = `${componentName}.js`;
+    let componentDir = path.join(__dirname, '../../../../src/Components', category, componentName);
+    componentDir = componentDir.slice(1);
 
-    let componentPath = path.join(componentDir, fileName);
-    componentPath=componentPath.slice(1);
+   // let componentPath = path.join(componentDir, fileName);
+    //componentPath=componentPath.slice(1);
 
     if (!fs.existsSync(componentPath)) {
         Print.error(`Component '${componentName}' does not exist.`);

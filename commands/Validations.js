@@ -11,7 +11,6 @@ export default class Validations{
         const categoryVariations = {
             'Service': ['service', 'servicio', 'serv', 's'],
             'Visual': ['visual', 'vis', 'v'],
-            'Provider': ['provider', 'proveedor', 'prov' , 'p'],
             'Structural': ['structural', 'estructural', 'est', 'st']
         };
  

@@ -1,15 +1,19 @@
-
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Retrocede un directorio desde __dirname para llegar al directorio principal del proyecto
+const projectName = path.basename(__dirname); // Obtiene el nombre de la carpeta actual
+
 const projectPackageJsonPath = path.resolve(__dirname, '../../package.json');
 
-// Lee el contenido del package.json del proyecto
-fs.promises.readFile(projectPackageJsonPath, 'utf8')
+// Verifica si el archivo package.json existe
+fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
+    .then(() => {
+        // El archivo package.json existe, por lo que lo leemos y agregamos los comandos
+        return fs.promises.readFile(projectPackageJsonPath, 'utf8');
+    })
     .then(data => {
         // Convierte el contenido del archivo a un objeto JSON
         const projectPackageJson = JSON.parse(data);
@@ -26,7 +30,35 @@ fs.promises.readFile(projectPackageJsonPath, 'utf8')
         return fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(projectPackageJson, null, 2), 'utf8');
     })
     .then(() => {
-        console.log('Comandos agregados al package.json del proyecto.');
+        console.log('SliceJS CLI commands added to package.json.');
+    })
+    .catch(err => {
+        if (err.code === 'ENOENT') {
+            // El archivo package.json no existe, así que creamos uno nuevo con los comandos
+            const defaultPackageJson = {
+                name: "project-name", // Utiliza el nombre de la carpeta como nombre del proyecto
+                version: '1.0.0',
+                description: 'Project description',
+                main: 'index.js',
+                scripts: {
+                    'slice:init': 'node node_modules/slicejs-cli/client.js init',
+                    'slice:create': 'node node_modules/slicejs-cli/client.js create',
+                    'slice:modify': 'node node_modules/slicejs-cli/client.js modify',
+                    'slice:list': 'node node_modules/slicejs-cli/client.js list',
+                    'slice:delete': 'node node_modules/slicejs-cli/client.js delete'
+                },
+                keywords: [],
+                author: '',
+                license: 'ISC'
+            };
+            // Guardamos el nuevo package.json
+            return fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(defaultPackageJson, null, 2), 'utf8');
+        } else {
+            console.error('Error:', err);
+        }
+    })
+    .then(() => {
+        console.log('Created package.json with SliceJS CLI commands.');
     })
     .catch(err => {
         console.error('Error:', err);

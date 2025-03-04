@@ -23,10 +23,12 @@ sliceClient
     .description('Create a new component')
     .option('-category <category>', 'Specify the category of the component')
     .option('-properties <properties>', 'Specify properties for the component (comma-separated)')
+    .option('-methods <methods>', 'Specify methods for the component (comma-separated)')
     .action((componentName, options) => {
-        const { Category, Properties } = options;
+        const { Category, Properties, Methods } = options;
         const propertiesList = Properties ? Properties.split(',') : [];
-       if( createComponent(componentName, Category, propertiesList))    listComponents();   
+        const methodsList = Methods ? Methods.split(',') : [];
+       if( createComponent(componentName, Category, propertiesList, methodsList))    listComponents();   
     });
 
 // Comando para modificar un componente

@@ -1,6 +1,7 @@
-export default function componentTemplate(componentName, props) {
-  // Generar la lista de getters y setters para las props
-  const propGettersSetters = props.map(prop => `
+export default class componentTemplates{
+
+  static visual(componentName, props){
+    const propGettersSetters = props.map(prop => `
   get ${prop}() {
       return this._${prop};
   }
@@ -26,5 +27,25 @@ export default function componentTemplate(componentName, props) {
 
 customElements.define("slice-${componentName.toLowerCase()}", ${componentName});
 `;
+  }
+
+  static service(componentName, methods) {
+    const methodDefinitions = methods.map(method => `
+    ${method}() {}
+    `).join('\n');
+  
+    return `export default class ${componentName} {
+    constructor(props) {
+      // Constructor
+    }
+  
+    init() {
+      // Método init
+    }
+  
+    ${methodDefinitions}
+  }
+  `;
+  }
 }
 
