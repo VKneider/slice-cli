@@ -22,17 +22,12 @@ function deleteComponent(componentName, category) {
         return;
     }
     category = flagCategory.category;
-
-    // Determinar la ruta del archivo
-    //RUTA PARA CUANDO SE COLOQUE DE USUARIO
-    // ../../../../src/Components
-    //PARA DEVELOPERS
-    // ../../../../Slice/Components
     
+    const categoryPath = Validations.getCategoryPath(category);
 
-    
+
     // Construir la ruta del directorio del componente
-    let componentDir = path.join(__dirname, '../../../../src/Components', category, componentName);
+    let componentDir = path.join(__dirname, '../../../../src/', categoryPath, componentName);
     componentDir = componentDir.slice(1);
 
     // Verificar si el directorio del componente existe

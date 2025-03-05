@@ -7,8 +7,7 @@ import Validations from '../Validations.js';
 import Print from '../Print.js';
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
-function createComponent(componentName, category, properties, methods) {
-
+function createComponent(componentName, category, properties) {
     if (!componentName) {
         Print.error('Component name is required');
         return;
@@ -32,28 +31,30 @@ function createComponent(componentName, category, properties, methods) {
     const className = componentName.charAt(0).toUpperCase() + componentName.slice(1);
     const fileName = `${className}.js`;
     let template;
+
+    const type = Validations.getCategoryType(category);
+
     
-    if(category==='Visual'){
+    if(type==='Visual'){
        template = componentTemplates.visual(className, properties);
     }
 
-    if(category==='Service'){
-         template = componentTemplates.service(className, methods);
+    if(type==='Service'){
+         template = componentTemplates.service(className);
      }
 
-    //RUTA PARA CUANDO SE COLOQUE DE USUARIO
-    // ../../../../src/Components
+    const categoryPath = Validations.getCategoryPath(category);
+
 
     // Determinar la ruta del archivo
-    let componentDir = path.join(__dirname, '../../../../src/Components', category, className);
+    let componentDir = path.join(__dirname, '../../../../src/', categoryPath, className);
     componentDir=componentDir.slice(1);
-    // Asegurarse de que el directorio del componente exista
     fs.ensureDirSync(componentDir);
     
+
     // Determinar la ruta del archivo
     let componentPath = path.join(componentDir, fileName);
-    
-    
+
 
     // Verificar si el archivo ya existe
     if (fs.existsSync(componentPath)) {
@@ -61,10 +62,12 @@ function createComponent(componentName, category, properties, methods) {
         return;
     }
 
+
+
     // Escribir el código del componente en el archivo
     fs.writeFileSync(componentPath, template);
 
-    if(category==='Visual'){
+    if(type==='Visual'){
         fs.writeFileSync(`${componentDir}/${className}.css`, '');
         fs.writeFileSync(`${componentDir}/${className}.html`, `<div>${componentName}</div>`);
     }

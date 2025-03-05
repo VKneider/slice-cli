@@ -21,10 +21,9 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         // Agrega los comandos personalizados a los scripts del proyecto
         projectPackageJson.scripts = projectPackageJson.scripts || {};
         projectPackageJson.scripts['slice:init'] = 'node node_modules/slicejs-cli/client.js init';
-        projectPackageJson.scripts['slice:create'] = 'node node_modules/slicejs-cli/client.js create';
-        projectPackageJson.scripts['slice:modify'] = 'node node_modules/slicejs-cli/client.js modify';
-        projectPackageJson.scripts['slice:list'] = 'node node_modules/slicejs-cli/client.js list';
-        projectPackageJson.scripts['slice:delete'] = 'node node_modules/slicejs-cli/client.js delete';
+        projectPackageJson.scripts['slice:create'] = 'node node_modules/slicejs-cli/client.js component create';
+        projectPackageJson.scripts['slice:list'] = 'node node_modules/slicejs-cli/client.js component list';
+        projectPackageJson.scripts['slice:delete'] = 'node node_modules/slicejs-cli/client.js component delete';
         
         // Escribe el nuevo contenido en el package.json del proyecto
         return fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(projectPackageJson, null, 2), 'utf8');
@@ -42,10 +41,9 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                 main: 'index.js',
                 scripts: {
                     'slice:init': 'node node_modules/slicejs-cli/client.js init',
-                    'slice:create': 'node node_modules/slicejs-cli/client.js create',
-                    'slice:modify': 'node node_modules/slicejs-cli/client.js modify',
-                    'slice:list': 'node node_modules/slicejs-cli/client.js list',
-                    'slice:delete': 'node node_modules/slicejs-cli/client.js delete'
+                    'slice:create': 'node node_modules/slicejs-cli/client.js component create',
+                    'slice:list': 'node node_modules/slicejs-cli/client.js component list',
+                    'slice:delete': 'node node_modules/slicejs-cli/client.js component delete'
                 },
                 keywords: [],
                 author: '',

@@ -29,10 +29,8 @@ customElements.define("slice-${componentName.toLowerCase()}", ${componentName});
 `;
   }
 
-  static service(componentName, methods) {
-    const methodDefinitions = methods.map(method => `
-    ${method}() {}
-    `).join('\n');
+  static service(componentName) {
+
   
     return `export default class ${componentName} {
     constructor(props) {
@@ -42,8 +40,6 @@ customElements.define("slice-${componentName.toLowerCase()}", ${componentName});
     init() {
       // Método init
     }
-  
-    ${methodDefinitions}
   }
   `;
   }

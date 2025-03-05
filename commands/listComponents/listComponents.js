@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  */
 const loadConfig = () => {
     try {
-        const configPath = path.join(__dirname, '../../../../Slice/sliceConfig.json');
+        const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
         const rawData = fs.readFileSync(configPath, 'utf-8');
         return JSON.parse(rawData);
     } catch (error) {
@@ -28,7 +28,6 @@ const loadConfig = () => {
 const listComponents = (folderPath) => {
     try {
         const result = fs.readdirSync(folderPath)
-        console.log(`Leyendo carpeta ${folderPath}: ${result.length} archivos encontrados`);
         return result;
     } catch (error) {
         console.error(`Error leyendo carpeta ${folderPath}: ${error.message}`);
@@ -71,7 +70,7 @@ function listComponentsReal(){
 const components = getComponents();
 
 // Ruta donde se generará components.js
-const outputPath = path.join(__dirname, '../../../../Slice/Components/components.js');
+const outputPath = path.join(__dirname, '../../../../src/Components/components.js');
 
 // Generar archivo components.js con los componentes detectados
 fs.writeFileSync(outputPath, `const components = ${JSON.stringify(components, null, 2)}; export default components;`);
