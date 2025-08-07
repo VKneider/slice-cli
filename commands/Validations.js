@@ -20,7 +20,11 @@ class Validations {
     loadConfig() {
         try {
             const configPath = path.join(__dirname, '../../../src/sliceConfig.json');
+            if (!fs.existsSync(configPath)) {
+                return null; // Evitar error si no existe
+              }
             const rawData = fs.readFileSync(configPath, 'utf-8');
+            
             return JSON.parse(rawData);
         } catch (error) {
             console.error(`Error cargando configuración: ${error.message}`);
@@ -47,6 +51,26 @@ class Validations {
             return { isValid: true, category };
         } else {
             return { isValid: false, category: null };
+        }
+    }
+
+    componentExists(componentName) {
+        try {
+            const componentFilePath = path.join(__dirname, '../../../src/Components/components.js');
+    
+            if (!fs.existsSync(componentFilePath)) {
+                console.error('❌ El archivo components.js no existe en la ruta esperada.');
+                return false;
+            }
+    
+            const fileContent = fs.readFileSync(componentFilePath, 'utf-8');
+            const components = eval(fileContent.replace('export default', '')); // Evalúa el contenido como objeto
+            
+            return components.hasOwnProperty(componentName);
+
+        } catch (error) {
+            console.error('❌ Error al verificar el componente:', error);
+            return false;
         }
     }
 }

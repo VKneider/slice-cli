@@ -13,6 +13,8 @@ import validations from "./commands/Validations.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+
+
 const loadConfig = () => {
   try {
     const configPath = path.join(__dirname, "../../src/sliceConfig.json");
@@ -33,17 +35,16 @@ const sliceClient = program;
 
 sliceClient.version("1.0.0").description("CLI for managing framework components");
 
-
-// INIT COMMAND
-sliceClient
-  .command("init")
-  .description("Initialize the project")
-  .action(() => {
-    initializeProject("basic");
-  });
-
 // COMPONENT COMMAND GROUP
 const componentCommand = sliceClient.command("component").description("Manage components");
+
+//create init command
+sliceClient
+  .command("init")
+  .description("Initialize a new SliceJS project")
+  .action(() => {
+    initializeProject();
+  });
 
 // CREATE COMPONENT
 componentCommand
@@ -75,8 +76,7 @@ componentCommand
           {
             type: "input",
             name: "properties",
-            message: "Enter the properties (comma separated):",
-            validate: (input) => (input ? true : "Properties cannot be empty"),
+            message: "Enter the properties (comma separated):"
           },
         ]);
         answers.properties = properties.properties.split(",").map((prop) => prop.trim());

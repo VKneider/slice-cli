@@ -18,8 +18,14 @@ function createComponent(componentName, category, properties) {
         return;
     }
 
+    if(Validations.componentExists(componentName)){
+        Print.error(`Component '${componentName}' already exists. Please use a different name.`);
+        return;
+    }
+
     let flagCategory = Validations.isValidCategory(category);
 
+    
 
     if (!flagCategory.isValid) {
         Print.error('Invalid category. Please use one of the following categories: Service, Visual, Provider, Structural');

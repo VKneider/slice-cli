@@ -1,6 +1,8 @@
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import Print from './commands/Print.js';
+import initializeProject from './commands/init/init.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,13 +22,23 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
 
         // Agrega los comandos personalizados a los scripts del proyecto
         projectPackageJson.scripts = projectPackageJson.scripts || {};
-        projectPackageJson.scripts['slice:init'] = 'node node_modules/slicejs-cli/client.js init';
         projectPackageJson.scripts['slice:create'] = 'node node_modules/slicejs-cli/client.js component create';
         projectPackageJson.scripts['slice:list'] = 'node node_modules/slicejs-cli/client.js component list';
         projectPackageJson.scripts['slice:delete'] = 'node node_modules/slicejs-cli/client.js component delete';
+        projectPackageJson.scripts['slice:init'] = 'node node_modules/slicejs-cli/client.js init';
+        projectPackageJson.scripts['run'] = 'node api/index.js';
+        projectPackageJson.scripts['slice:start'] = 'node api/index.js';
+        projectPackageJson.scripts['development'] = 'node api/index.js';
+
+        // add type module
+        projectPackageJson.type = 'module';
+        projectPackageJson.engines = {
+            "node": "20.x"
+        };
         
         // Escribe el nuevo contenido en el package.json del proyecto
-        return fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(projectPackageJson, null, 2), 'utf8');
+         fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(projectPackageJson, null, 2), 'utf8');
+         return Print.success("Run 'npm run slice:init' to initialize your project");
     })
     .then(() => {
         console.log('SliceJS CLI commands added to package.json.');
@@ -38,19 +50,26 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                 name: "project-name", // Utiliza el nombre de la carpeta como nombre del proyecto
                 version: '1.0.0',
                 description: 'Project description',
-                main: 'index.js',
+                main: 'api/index.js',
                 scripts: {
-                    'slice:init': 'node node_modules/slicejs-cli/client.js init',
                     'slice:create': 'node node_modules/slicejs-cli/client.js component create',
                     'slice:list': 'node node_modules/slicejs-cli/client.js component list',
-                    'slice:delete': 'node node_modules/slicejs-cli/client.js component delete'
+                    'slice:delete': 'node node_modules/slicejs-cli/client.js component delete',
+                    "run": "node api/index.js",
+                    "slice:start": "node api/index.js",
+                    "slice:init": "node node_modules/slicejs-cli/client.js init"
                 },
                 keywords: [],
                 author: '',
-                license: 'ISC'
+                license: 'ISC',
+                type: 'module',
+                engines: {
+                    "node": "20.x"
+                }
             };
             // Guardamos el nuevo package.json
-            return fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(defaultPackageJson, null, 2), 'utf8');
+             fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(defaultPackageJson, null, 2), 'utf8');
+             return Print.success("Run 'npm run slice:init' to initialize your project");
         } else {
             console.error('Error:', err);
         }
@@ -60,4 +79,6 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
     })
     .catch(err => {
         console.error('Error:', err);
-    });
+    })
+
+
