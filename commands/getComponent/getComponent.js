@@ -109,8 +109,7 @@ class ComponentRegistry {
           updatableComponents.push({
             name,
             category,
-            path: componentPath,
-            description: this.getComponentDescription(name, category)
+            path: componentPath
           });
         }
       }
@@ -125,13 +124,25 @@ class ComponentRegistry {
     const components = {};
     Object.entries(this.componentsRegistry).forEach(([name, componentCategory]) => {
       if (!category || componentCategory === category) {
+        // ✅ CORREGIDO: Componentes especiales que no necesitan todos los archivos
+        let files;
+        if (componentCategory === 'Visual') {
+          // Componentes de routing lógico solo necesitan JS
+          if (['Route', 'MultiRoute', 'NotFound'].includes(name)) {
+            files = [`${name}.js`];
+          } else {
+            // Componentes visuales normales necesitan JS, HTML, CSS
+            files = [`${name}.js`, `${name}.html`, `${name}.css`];
+          }
+        } else {
+          // Service components solo necesitan JS
+          files = [`${name}.js`];
+        }
+
         components[name] = {
           name,
           category: componentCategory,
-          files: componentCategory === 'Visual' ? 
-            [`${name}.js`, `${name}.html`, `${name}.css`] : 
-            [`${name}.js`],
-          description: this.getComponentDescription(name, componentCategory)
+          files: files
         };
       }
     });
@@ -139,37 +150,42 @@ class ComponentRegistry {
     return components;
   }
 
-  getComponentDescription(componentName, category) {
-    const descriptions = {
-      // Visual Components
-      'Button': 'Interactive button component with customizable styling and events',
-      'Card': 'Flexible container component for displaying content in card format',
-      'Input': 'Form input component with validation and multiple input types support',
-      'Checkbox': 'Checkbox input component with custom styling and state management',
-      'Switch': 'Toggle switch component for binary state selection',
-      'Select': 'Dropdown selection component with search and multi-select support',
-      'Details': 'Collapsible details component for expandable content sections',
-      'Grid': 'Responsive grid layout component for organizing content',
-      'Icon': 'Icon display component with multiple icon libraries support',
-      'Layout': 'Main layout component for application page structure',
-      'Loading': 'Loading indicator component with multiple animation styles',
-      'Navbar': 'Navigation bar component with responsive design and menu support',
-      'TreeView': 'Hierarchical tree view component for nested data display',
-      'TreeItem': 'Individual tree item component used within TreeView',
-      'DropDown': 'Dropdown menu component for contextual actions',
-      'Route': 'Single route component for client-side routing',
-      'MultiRoute': 'Multiple route handler component for complex routing',
-      'NotFound': '404 error page component for unmatched routes',
-      
-      // Service Components
-      'FetchManager': 'HTTP request manager service for API communication',
-      'LocalStorageManager': 'Local storage management service for browser storage',
-      'IndexedDbManager': 'IndexedDB database management service for client-side storage',
-      'Translator': 'Internationalization service for multi-language support',
-      'Link': 'Navigation link service for programmatic routing'
-    };
+  displayAvailableComponents() {
+    if (!this.componentsRegistry) {
+      Print.error('❌ No se pudo cargar el registro de componentes');
+      return;
+    }
 
-    return descriptions[componentName] || `${componentName} component from Slice.js framework (${category})`;
+    console.log('\n📚 Componentes disponibles en el repositorio oficial de Slice.js:\n');
+
+    const visualComponents = this.getAvailableComponents('Visual');
+    const serviceComponents = this.getAvailableComponents('Service');
+
+    // ✅ SIMPLIFICADO: Solo mostrar nombres sin descripciones
+    Print.info('🎨 Visual Components (UI):');
+    Object.keys(visualComponents).forEach(name => {
+      const files = visualComponents[name].files;
+      const fileIcons = files.map(file => {
+        if (file.endsWith('.js')) return '📜';
+        if (file.endsWith('.html')) return '🌐';
+        if (file.endsWith('.css')) return '🎨';
+        return '📄';
+      }).join(' ');
+      console.log(`  • ${name} ${fileIcons}`);
+    });
+
+    Print.info('\n⚙️  Service Components (Logic):');
+    Object.keys(serviceComponents).forEach(name => {
+      console.log(`  • ${name} 📜`);
+    });
+
+    Print.newLine();
+    Print.info(`Total: ${Object.keys(visualComponents).length} Visual + ${Object.keys(serviceComponents).length} Service components`);
+
+    console.log(`\n💡 Ejemplos de uso:`);
+    console.log(`slice get Button Card Input          # Obtener componentes Visual`);
+    console.log(`slice get FetchManager --service     # Obtener componente Service`);
+    console.log(`slice sync                           # Sincronizar componentes Visual`);
   }
 
   async downloadComponentFiles(componentName, category, targetPath) {
@@ -180,6 +196,7 @@ class ComponentRegistry {
     }
 
     const downloadedFiles = [];
+    const failedFiles = [];
     Print.info(`Downloading ${componentName} from official repository...`);
 
     for (const fileName of component.files) {
@@ -190,7 +207,9 @@ class ComponentRegistry {
         const response = await fetch(githubUrl);
         
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText} for ${fileName}`);
+          Print.downloadError(fileName, `HTTP ${response.status}: ${response.statusText}`);
+          failedFiles.push(fileName);
+          continue; // ✅ CONTINUAR en lugar de lanzar error
         }
 
         const content = await response.text();
@@ -200,8 +219,22 @@ class ComponentRegistry {
         Print.downloadSuccess(fileName);
       } catch (error) {
         Print.downloadError(fileName, error.message);
-        throw error;
+        failedFiles.push(fileName);
+        continue; // ✅ CONTINUAR en lugar de lanzar error
       }
+    }
+
+    // ✅ NUEVO: Solo lanzar error si NO se descargó el archivo principal (.js)
+    const mainFileDownloaded = downloadedFiles.some(file => file.endsWith('.js'));
+    
+    if (!mainFileDownloaded) {
+      throw new Error(`Failed to download main component file (${componentName}.js)`);
+    }
+
+    // ✅ ADVERTENCIA: Informar sobre archivos que fallaron (pero no detener el proceso)
+    if (failedFiles.length > 0) {
+      Print.warning(`Some files couldn't be downloaded: ${failedFiles.join(', ')}`);
+      Print.info('Component installed with available files');
     }
 
     return downloadedFiles;
@@ -295,18 +328,27 @@ class ComponentRegistry {
       // Update components registry
       await this.updateLocalRegistry(componentName, category);
 
-      Print.success(`${componentName} updated successfully from official repository!`);
+      Print.success(`${componentName} installed successfully from official repository!`);
       console.log(`📁 Location: ${folderSuffix}/${categoryPath}/${componentName}/`);
       console.log(`📄 Files: ${downloadedFiles.join(', ')}`);
 
       return true;
 
     } catch (error) {
-      Print.error(`Error updating ${componentName}: ${error.message}`);
-      // Clean up partial installation
-      if (await fs.pathExists(targetPath)) {
+      Print.error(`Error installing ${componentName}: ${error.message}`);
+      
+      // ✅ MEJORADO: Solo borrar si el archivo principal (.js) no existe
+      const mainFilePath = path.join(targetPath, `${componentName}.js`);
+      const mainFileExists = await fs.pathExists(mainFilePath);
+      
+      if (!mainFileExists && await fs.pathExists(targetPath)) {
+        // Solo limpiar si no se instaló el archivo principal
         await fs.remove(targetPath);
+        Print.info('Cleaned up failed installation');
+      } else if (mainFileExists) {
+        Print.warning('Component partially installed - main file exists');
       }
+      
       throw error;
     }
   }
@@ -420,20 +462,31 @@ class ComponentRegistry {
     const visualComponents = this.getAvailableComponents('Visual');
     const serviceComponents = this.getAvailableComponents('Service');
 
+    // ✅ SIMPLIFICADO: Solo mostrar nombres sin descripciones
     Print.info('🎨 Visual Components (UI):');
-    Object.entries(visualComponents).forEach(([name, info]) => {
-      console.log(`  • ${name}: ${info.description}`);
+    Object.keys(visualComponents).forEach(name => {
+      const files = visualComponents[name].files;
+      const fileIcons = files.map(file => {
+        if (file.endsWith('.js')) return '📜';
+        if (file.endsWith('.html')) return '🌐';
+        if (file.endsWith('.css')) return '🎨';
+        return '📄';
+      }).join(' ');
+      console.log(`  • ${name} ${fileIcons}`);
     });
 
     Print.info('\n⚙️  Service Components (Logic):');
-    Object.entries(serviceComponents).forEach(([name, info]) => {
-      console.log(`  • ${name}: ${info.description}`);
+    Object.keys(serviceComponents).forEach(name => {
+      console.log(`  • ${name} 📜`);
     });
 
+    Print.newLine();
+    Print.info(`Total: ${Object.keys(visualComponents).length} Visual + ${Object.keys(serviceComponents).length} Service components`);
+
     console.log(`\n💡 Ejemplos de uso:`);
-    console.log(`npm run slice:get Button Card Input`);
-    console.log(`npm run slice:get FetchManager --service`);
-    console.log(`npm run slice:sync              # Actualizar componentes existentes`);
+    console.log(`slice get Button Card Input          # Obtener componentes Visual`);
+    console.log(`slice get FetchManager --service     # Obtener componente Service`);
+    console.log(`slice sync                           # Sincronizar componentes Visual`);
   }
 
   async interactiveInstall() {
@@ -450,8 +503,8 @@ class ComponentRegistry {
     ]);
 
     const availableComponents = this.getAvailableComponents(componentType);
-    const componentChoices = Object.entries(availableComponents).map(([name, info]) => ({
-      name: `${name} - ${info.description}`,
+    const componentChoices = Object.keys(availableComponents).map(name => ({
+      name: name,
       value: name
     }));
 
@@ -554,7 +607,7 @@ async function getComponents(componentNames = [], options = {}) {
     
     if (!componentInfo) {
       Print.error(`Component '${componentNames[0]}' not found in official repository`);
-      Print.commandExample('View available components', 'npm run slice:browse');
+      Print.commandExample('View available components', 'slice browse');
       return false;
     }
 
