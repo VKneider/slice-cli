@@ -50,7 +50,7 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         // Module configuration
         projectPackageJson.type = 'module';
         projectPackageJson.engines = {
-            "node": "20.x"
+            "node": ">=20.0.0"
         };
         
         // Write the new content to package.json
@@ -112,7 +112,7 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                 license: 'ISC',
                 type: 'module',
                 engines: {
-                    "node": "20.x"
+                    "node": ">=20.0.0"
                 }
             };
             
