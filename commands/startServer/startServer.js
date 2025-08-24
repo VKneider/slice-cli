@@ -1,4 +1,4 @@
-// commands/startServer/startServer.js - VERSIÓN SIMPLIFICADA
+// commands/startServer/startServer.js - CON ARGUMENTOS
 
 import fs from 'fs-extra';
 import path from 'path';
@@ -7,6 +7,20 @@ import { spawn } from 'child_process';
 import Print from '../Print.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Carga la configuración desde sliceConfig.json
+ */
+const loadConfig = () => {
+  try {
+    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+    const rawData = fs.readFileSync(configPath, 'utf-8');
+    return JSON.parse(rawData);
+  } catch (error) {
+    Print.error(`Loading configuration: ${error.message}`);
+    return null;
+  }
+};
 
 /**
  * Verifica si existe un build de producción
@@ -27,7 +41,7 @@ async function checkDevelopmentStructure() {
 }
 
 /**
- * Inicia el servidor Node.js - SIMPLIFICADO
+ * Inicia el servidor Node.js con argumentos
  */
 function startNodeServer(port, mode) {
   return new Promise((resolve, reject) => {
@@ -35,13 +49,20 @@ function startNodeServer(port, mode) {
     
     Print.info(`Starting ${mode} server on port ${port}...`);
     
-    const serverProcess = spawn('node', [apiIndexPath], {
+    // Construir argumentos basados en el modo
+    const args = [apiIndexPath];
+    if (mode === 'production') {
+      args.push('--production');
+    } else {
+      args.push('--development');
+    }
+    
+    const serverProcess = spawn('node', args, {
       stdio: 'inherit',
       env: {
         ...process.env,
-        PORT: port,
-        NODE_ENV: mode === 'production' ? 'production' : 'development',
-        SLICE_CLI_MODE: 'true' // Flag para que api/index.js sepa que viene del CLI
+        PORT: port
+        // Ya no necesitamos NODE_ENV ni SLICE_CLI_MODE
       }
     });
 
@@ -50,7 +71,7 @@ function startNodeServer(port, mode) {
       reject(error);
     });
 
-    // Manejar Ctrl+C - SIMPLIFICADO
+    // Manejar Ctrl+C
     process.on('SIGINT', () => {
       Print.info('Shutting down server...');
       serverProcess.kill('SIGINT');
@@ -61,7 +82,6 @@ function startNodeServer(port, mode) {
       serverProcess.kill('SIGTERM');
     });
 
-    // NO mostrar mensajes duplicados - el api/index.js ya se encarga
     setTimeout(() => {
       resolve(serverProcess);
     }, 500);
@@ -69,10 +89,13 @@ function startNodeServer(port, mode) {
 }
 
 /**
- * Función principal para iniciar servidor - ULTRA SIMPLIFICADA
+ * Función principal para iniciar servidor
  */
 export default async function startServer(options = {}) {
-  const { mode = 'development', port = 3000 } = options;
+  const config = loadConfig();
+  const defaultPort = config?.server?.port || 3000;
+  
+  const { mode = 'development', port = defaultPort } = options;
   
   try {
     Print.title(`🚀 Starting Slice.js ${mode} server...`);
@@ -93,7 +116,7 @@ export default async function startServer(options = {}) {
       Print.info('Development mode: serving files from /src with hot reload');
     }
     
-    // Iniciar el servidor - api/index.js maneja todo automáticamente
+    // Iniciar el servidor con argumentos
     await startNodeServer(port, mode);
     
   } catch (error) {
