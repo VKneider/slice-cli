@@ -274,7 +274,7 @@ class ComponentRegistry {
         {
           type: 'confirm',
           name: 'overwrite',
-          message: `The component '${componentName}' already exists locally. Do you really want to overwrite your own version for the repository version?`,
+          message: `El componente '${componentName}' ya existe localmente. ¿Deseas sobrescribirlo con la versión del repositorio?`,
           default: false
         }
       ]);
@@ -336,22 +336,30 @@ class ComponentRegistry {
   }
 
   async updateAllComponents(force = false) {
-    Print.info('Looking for updatable components...');
+    Print.info('Looking for updatable Visual components...');
     
-    const updatableComponents = await this.findUpdatableComponents();
+    const allUpdatableComponents = await this.findUpdatableComponents();
+    
+    // ✅ NUEVO: Filtrar solo componentes Visual
+    const updatableComponents = allUpdatableComponents.filter(comp => comp.category === 'Visual');
     
     if (updatableComponents.length === 0) {
-      Print.info('No local components found that match the official repository');
-      Print.info('Use "npm run slice:browse" to see available components');
+      Print.info('No local Visual components found that match the official repository');
+      Print.info('Use "slice browse" to see available components');
       return true;
     }
 
+    // Mostrar estadísticas si hay componentes Service que no se sincronizarán
+    const serviceComponents = allUpdatableComponents.filter(comp => comp.category === 'Service');
+    if (serviceComponents.length > 0) {
+      Print.info(`Found ${serviceComponents.length} Service components (skipped - sync only affects Visual components)`);
+    }
+
     Print.newLine();
-    Print.subtitle(`Found ${updatableComponents.length} updatable components:`);
+    Print.subtitle(`Found ${updatableComponents.length} updatable Visual components:`);
     Print.newLine();
     updatableComponents.forEach(comp => {
-      const icon = comp.category === 'Visual' ? '🎨' : '⚙️';
-      console.log(`${icon} ${comp.name} (${comp.category})`);
+      console.log(`🎨 ${comp.name} (${comp.category})`);
     });
 
     if (!force) {
@@ -359,7 +367,7 @@ class ComponentRegistry {
         {
           type: 'confirm',
           name: 'confirmUpdate',
-          message: `Do you want to update all these components to the repository versions?`,
+          message: `Do you want to update these Visual components to the repository versions?`,
           default: true
         }
       ]);
@@ -370,38 +378,32 @@ class ComponentRegistry {
       }
     }
 
-    // Group by category for efficient processing
-    const visualComponents = updatableComponents.filter(c => c.category === 'Visual').map(c => c.name);
-    const serviceComponents = updatableComponents.filter(c => c.category === 'Service').map(c => c.name);
-
-    let allResults = [];
-
-    // Update Visual components
-    if (visualComponents.length > 0) {
-      Print.info(`Updating ${visualComponents.length} Visual components...`);
-      const visualResults = await this.installMultipleComponents(visualComponents, 'Visual', true);
-      allResults = allResults.concat(visualResults);
-    }
-
-    // Update Service components
-    if (serviceComponents.length > 0) {
-      Print.info(`Updating ${serviceComponents.length} Service components...`);
-      const serviceResults = await this.installMultipleComponents(serviceComponents, 'Service', true);
-      allResults = allResults.concat(serviceResults);
-    }
+    // ✅ SIMPLIFICADO: Solo actualizar componentes Visual
+    const visualComponentNames = updatableComponents.map(c => c.name);
+    
+    Print.info(`Updating ${visualComponentNames.length} Visual components...`);
+    const results = await this.installMultipleComponents(visualComponentNames, 'Visual', true);
 
     // Final summary
-    const totalSuccessful = allResults.filter(r => r.success).length;
-    const totalFailed = allResults.filter(r => !r.success).length;
+    const totalSuccessful = results.filter(r => r.success).length;
+    const totalFailed = results.filter(r => !r.success).length;
 
     Print.newLine();
-    Print.title('Final Update Summary');
-    Print.success(`Components updated: ${totalSuccessful}`);
+    Print.title('Visual Components Sync Summary');
+    Print.success(`Visual components updated: ${totalSuccessful}`);
     
     if (totalFailed > 0) {
-      Print.error(`Components failed: ${totalFailed}`);
+      Print.error(`Visual components failed: ${totalFailed}`);
     } else {
-      Print.success('All your components are now updated to the latest official versions!');
+      Print.success('All your Visual components are now updated to the latest official versions!');
+    }
+
+    // Información adicional sobre Service components
+    if (serviceComponents.length > 0) {
+      Print.newLine();
+      Print.info(`Note: ${serviceComponents.length} Service components were found but not updated`);
+      Print.info('Service components maintain manual versioning - update them individually if needed');
+      Print.commandExample('Update Service component manually', 'slice get FetchManager --service --force');
     }
 
     return totalFailed === 0;
