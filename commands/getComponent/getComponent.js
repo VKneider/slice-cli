@@ -10,8 +10,8 @@ import Print from "../Print.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Base URL del repositorio de documentación de Slice.js
-const DOCS_REPO_BASE_URL = 'https://raw.githubusercontent.com/VKneider/slice.js/main/src/Components';
-const COMPONENTS_REGISTRY_URL = 'https://raw.githubusercontent.com/VKneider/slice.js/main/src/Components/components.js';
+const DOCS_REPO_BASE_URL = 'https://raw.githubusercontent.com/VKneider/slice.js_docs/main/src/Components';
+const COMPONENTS_REGISTRY_URL = 'https://raw.githubusercontent.com/VKneider/slice.js_docs/main/src/Components/components.js';
 
 class ComponentRegistry {
   constructor() {
