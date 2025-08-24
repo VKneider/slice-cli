@@ -19,7 +19,7 @@ class ComponentRegistry {
   }
 
   async loadRegistry() {
-    Print.info('📡 Cargando registro de componentes del repositorio oficial...');
+    Print.info('Loading component registry from official repository...');
     
     try {
       const response = await fetch(COMPONENTS_REGISTRY_URL);
@@ -37,11 +37,11 @@ class ComponentRegistry {
       }
 
       this.componentsRegistry = eval('(' + match[1] + ')');
-      Print.success('✅ Registro de componentes cargado exitosamente');
+      Print.success('Component registry loaded successfully');
       
     } catch (error) {
-      Print.error(`❌ Error cargando registro de componentes: ${error.message}`);
-      Print.info('💡 Verifica tu conexión a internet y que el repositorio sea accesible');
+      Print.error(`Loading component registry: ${error.message}`);
+      Print.info('Check your internet connection and repository accessibility');
       throw error;
     }
   }
@@ -154,7 +154,7 @@ class ComponentRegistry {
     }
 
     const downloadedFiles = [];
-    Print.info(`📥 Descargando ${componentName} desde el repositorio oficial...`);
+    Print.info(`Downloading ${componentName} from official repository...`);
 
     for (const fileName of component.files) {
       const githubUrl = `${DOCS_REPO_BASE_URL}/${category}/${componentName}/${fileName}`;
@@ -164,16 +164,16 @@ class ComponentRegistry {
         const response = await fetch(githubUrl);
         
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText} para ${fileName}`);
+          throw new Error(`HTTP ${response.status}: ${response.statusText} for ${fileName}`);
         }
 
         const content = await response.text();
         await fs.writeFile(localPath, content, 'utf8');
         downloadedFiles.push(fileName);
         
-        console.log(`  ✅ ${fileName}`);
+        Print.downloadSuccess(fileName);
       } catch (error) {
-        Print.error(`  ❌ Error descargando ${fileName}: ${error.message}`);
+        Print.downloadError(fileName, error.message);
         throw error;
       }
     }
@@ -215,13 +215,13 @@ class ComponentRegistry {
         const newContent = `const components = ${newComponentsString}; export default components;`;
         
         await fs.writeFile(componentsPath, newContent, 'utf8');
-        Print.success(`📝 Registrado ${componentName} en components.js local`);
+        Print.registryUpdate(`Registered ${componentName} in local components.js`);
       } else {
-        Print.info(`📄 ${componentName} ya existe en el registro local`);
+        Print.info(`${componentName} already exists in local registry`);
       }
       
     } catch (error) {
-      Print.error(`❌ Error actualizando components.js local: ${error.message}`);
+      Print.error(`Updating local components.js: ${error.message}`);
       throw error;
     }
   }
@@ -248,7 +248,7 @@ class ComponentRegistry {
       ]);
       
       if (!overwrite) {
-        Print.info('⏭️  Instalación cancelada por el usuario');
+        Print.info('Installation cancelled by user');
         return false;
       }
     }
@@ -263,14 +263,14 @@ class ComponentRegistry {
       // Update components registry
       await this.updateLocalRegistry(componentName, category);
 
-      Print.success(`✅ ${componentName} actualizado exitosamente desde el repositorio oficial!`);
-      console.log(`📁 Ubicación: src/${categoryPath}/${componentName}/`);
-      console.log(`📄 Archivos: ${downloadedFiles.join(', ')}`);
+      Print.success(`${componentName} updated successfully from official repository!`);
+      console.log(`📁 Location: src/${categoryPath}/${componentName}/`);
+      console.log(`📄 Files: ${downloadedFiles.join(', ')}`);
 
       return true;
 
     } catch (error) {
-      Print.error(`❌ Error actualizando ${componentName}: ${error.message}`);
+      Print.error(`Error updating ${componentName}: ${error.message}`);
       // Clean up partial installation
       if (await fs.pathExists(targetPath)) {
         await fs.remove(targetPath);
@@ -281,14 +281,14 @@ class ComponentRegistry {
 
   async installMultipleComponents(componentNames, category = 'Visual', force = false) {
     const results = [];
-    Print.info(`🚀 Obteniendo ${componentNames.length} componentes ${category} del repositorio oficial...\n`);
+    Print.info(`Getting ${componentNames.length} ${category} components from official repository...`);
 
     for (const componentName of componentNames) {
       try {
         const result = await this.installComponent(componentName, category, force);
         results.push({ name: componentName, success: result });
       } catch (error) {
-        Print.error(`❌ Error con ${componentName}: ${error.message}\n`);
+        Print.componentError(componentName, 'getting', error.message);
         results.push({ name: componentName, success: false, error: error.message });
       }
     }
@@ -297,30 +297,26 @@ class ComponentRegistry {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
-    console.log(`\n📊 Resumen de instalación:`);
-    Print.success(`✅ Exitosos: ${successful}`);
-    if (failed > 0) {
-      Print.error(`❌ Fallidos: ${failed}`);
-      results.filter(r => !r.success).forEach(r => {
-        console.log(`  • ${r.name}: ${r.error}`);
-      });
-    }
+    Print.newLine();
+    Print.summary(successful, failed, componentNames.length);
 
     return results;
   }
 
   async updateAllComponents(force = false) {
-    Print.info('🔄 Buscando componentes actualizables...');
+    Print.info('Looking for updatable components...');
     
     const updatableComponents = await this.findUpdatableComponents();
     
     if (updatableComponents.length === 0) {
-      Print.info('✅ No se encontraron componentes locales que coincidan con el repositorio oficial');
-      Print.info('💡 Usa "npm run slice:browse" para ver componentes disponibles');
+      Print.info('No local components found that match the official repository');
+      Print.info('Use "npm run slice:browse" to see available components');
       return true;
     }
 
-    console.log(`\n📦 Encontrados ${updatableComponents.length} componentes actualizables:\n`);
+    Print.newLine();
+    Print.subtitle(`Found ${updatableComponents.length} updatable components:`);
+    Print.newLine();
     updatableComponents.forEach(comp => {
       const icon = comp.category === 'Visual' ? '🎨' : '⚙️';
       console.log(`${icon} ${comp.name} (${comp.category})`);
@@ -331,13 +327,13 @@ class ComponentRegistry {
         {
           type: 'confirm',
           name: 'confirmUpdate',
-          message: `¿Deseas actualizar todos estos componentes a las versiones del repositorio oficial?`,
+          message: `Do you want to update all these components to the repository versions?`,
           default: true
         }
       ]);
 
       if (!confirmUpdate) {
-        Print.info('⏭️  Actualización cancelada por el usuario');
+        Print.info('Update cancelled by user');
         return false;
       }
     }
@@ -350,14 +346,14 @@ class ComponentRegistry {
 
     // Update Visual components
     if (visualComponents.length > 0) {
-      Print.info(`\n🎨 Actualizando ${visualComponents.length} componentes Visual...`);
+      Print.info(`Updating ${visualComponents.length} Visual components...`);
       const visualResults = await this.installMultipleComponents(visualComponents, 'Visual', true);
       allResults = allResults.concat(visualResults);
     }
 
     // Update Service components
     if (serviceComponents.length > 0) {
-      Print.info(`\n⚙️  Actualizando ${serviceComponents.length} componentes Service...`);
+      Print.info(`Updating ${serviceComponents.length} Service components...`);
       const serviceResults = await this.installMultipleComponents(serviceComponents, 'Service', true);
       allResults = allResults.concat(serviceResults);
     }
@@ -366,13 +362,14 @@ class ComponentRegistry {
     const totalSuccessful = allResults.filter(r => r.success).length;
     const totalFailed = allResults.filter(r => !r.success).length;
 
-    console.log(`\n🎯 Resumen final de actualización:`);
-    Print.success(`✅ Componentes actualizados: ${totalSuccessful}`);
+    Print.newLine();
+    Print.title('Final Update Summary');
+    Print.success(`Components updated: ${totalSuccessful}`);
     
     if (totalFailed > 0) {
-      Print.error(`❌ Componentes fallidos: ${totalFailed}`);
+      Print.error(`Components failed: ${totalFailed}`);
     } else {
-      Print.success(`🚀 ¡Todos tus componentes están ahora actualizados a las últimas versiones oficiales!`);
+      Print.success('All your components are now updated to the latest official versions!');
     }
 
     return totalFailed === 0;
@@ -503,8 +500,8 @@ async function getComponents(componentNames = [], options = {}) {
   try {
     await registry.loadRegistry();
   } catch (error) {
-    Print.error('No se pudo cargar el registro de componentes del repositorio oficial');
-    Print.info('💡 Verifica tu conexión a internet y vuelve a intentar');
+    Print.error('Could not load component registry from official repository');
+    Print.info('Check your internet connection and try again');
     return false;
   }
 
@@ -522,8 +519,8 @@ async function getComponents(componentNames = [], options = {}) {
     const componentInfo = registry.findComponentInRegistry(componentNames[0]);
     
     if (!componentInfo) {
-      Print.error(`Componente '${componentNames[0]}' no encontrado en el repositorio oficial`);
-      Print.info('💡 Usa "npm run slice:browse" para ver componentes disponibles');
+      Print.error(`Component '${componentNames[0]}' not found in official repository`);
+      Print.commandExample('View available components', 'npm run slice:browse');
       return false;
     }
 
@@ -534,7 +531,7 @@ async function getComponents(componentNames = [], options = {}) {
       await registry.installComponent(componentInfo.name, actualCategory, options.force);
       return true;
     } catch (error) {
-      Print.error(`Error: ${error.message}`);
+      Print.error(`${error.message}`);
       return false;
     }
   } else {
@@ -547,7 +544,7 @@ async function getComponents(componentNames = [], options = {}) {
       await registry.installMultipleComponents(normalizedComponents, category, options.force);
       return true;
     } catch (error) {
-      Print.error(`Error: ${error.message}`);
+      Print.error(`${error.message}`);
       return false;
     }
   }
@@ -562,8 +559,8 @@ async function listComponents() {
     registry.displayAvailableComponents();
     return true;
   } catch (error) {
-    Print.error('No se pudo cargar el registro de componentes del repositorio oficial');
-    Print.info('💡 Verifica tu conexión a internet y vuelve a intentar');
+    Print.error('Could not load component registry from official repository');
+    Print.info('Check your internet connection and try again');
     return false;
   }
 }
@@ -576,8 +573,8 @@ async function syncComponents(options = {}) {
     await registry.loadRegistry();
     return await registry.updateAllComponents(options.force);
   } catch (error) {
-    Print.error('No se pudo cargar el registro de componentes del repositorio oficial');
-    Print.info('💡 Verifica tu conexión a internet y vuelve a intentar');
+    Print.error('Could not load component registry from official repository');
+    Print.info('Check your internet connection and try again');
     return false;
   }
 }

@@ -21,7 +21,7 @@ const loadConfig = () => {
     const rawData = fs.readFileSync(configPath, "utf-8");
     return JSON.parse(rawData);
   } catch (error) {
-    console.error(`Error loading configuration: ${error.message}`);
+    Print.error(`Loading configuration: ${error.message}`);
     return null;
   }
 };
@@ -33,20 +33,25 @@ const getCategories = () => {
 
 // Function to run version check for all commands
 async function runWithVersionCheck(commandFunction, ...args) {
-  // Run the command first
-  const result = await commandFunction(...args);
-  
-  // Then check for updates (non-blocking)
-  setTimeout(() => {
-    versionChecker.checkForUpdates(false);
-  }, 100);
-  
-  return result;
+  try {
+    // Run the command first
+    const result = await commandFunction(...args);
+    
+    // Then check for updates (non-blocking)
+    setTimeout(() => {
+      versionChecker.checkForUpdates(true);
+    }, 100);
+    
+    return result;
+  } catch (error) {
+    Print.error(`Command execution: ${error.message}`);
+    return false;
+  }
 }
 
 const sliceClient = program;
 
-sliceClient.version("2.1.0").description("CLI for managing Slice.js framework components");
+sliceClient.version("2.1.3").description("CLI for managing Slice.js framework components");
 
 // INIT COMMAND
 sliceClient
@@ -80,7 +85,8 @@ componentCommand
     await runWithVersionCheck(async () => {
       const categories = getCategories();
       if (categories.length === 0) {
-        Print.error("No categories available. Check your configuration.");
+        Print.error("No categories available. Check your configuration");
+        Print.info("Run 'slice init' to initialize your project");
         return;
       }
 
@@ -96,22 +102,28 @@ componentCommand
           name: "category",
           message: "Select the component category:",
           choices: categories,
-        }])
-
-        if(validations.getCategoryType(answers.category)==='Visual'){
-          const properties = await inquirer.prompt([
-            {
-              type: "input",
-              name: "properties",
-              message: "Enter the properties (comma separated):"
-            },
-          ]);
-          answers.properties = properties.properties.split(",").map((prop) => prop.trim());
-        } else {
-          answers.properties = [];
         }
+      ]);
+
+      if (validations.getCategoryType(answers.category) === 'Visual') {
+        const properties = await inquirer.prompt([
+          {
+            type: "input",
+            name: "properties",
+            message: "Enter the properties (comma separated):",
+            default: ""
+          },
+        ]);
+        answers.properties = properties.properties 
+          ? properties.properties.split(",").map((prop) => prop.trim()).filter(Boolean)
+          : [];
+      } else {
+        answers.properties = [];
+      }
       
       if (createComponent(answers.componentName, answers.category, answers.properties)) {
+        Print.success(`Component ${answers.componentName} created successfully`);
+        Print.info("Listing updated components:");
         listComponents();
       }
     });
@@ -138,11 +150,16 @@ componentCommand
     await runWithVersionCheck(async () => {
       const categories = getCategories();
       if (categories.length === 0) {
-        Print.error("No categories available. Check your configuration.");
+        Print.error("No categories available. Check your configuration");
+        Print.info("Run 'slice init' to initialize your project");
         return;
       }
 
-      deleteComponent();
+      try {
+        await deleteComponent();
+      } catch (error) {
+        Print.error(`Deleting component: ${error.message}`);
+      }
     });
   });
 
@@ -191,17 +208,16 @@ registryCommand
 // SHORTCUTS - Top-level convenient commands
 sliceClient
   .command("get [components...]")
-  .description("🚀 Quick install components from registry (shortcut for registry get)")
+  .description("Quick install components from registry")
   .option("-f, --force", "Force overwrite existing components")
   .option("-s, --service", "Install Service components instead of Visual")
   .action(async (components, options) => {
     await runWithVersionCheck(async () => {
       if (!components || components.length === 0) {
-        Print.info("💡 Tip: Use 'slice registry list' to see available components");
-        Print.info("📖 Usage examples:");
-        console.log("   slice get Button Card Input");
-        console.log("   slice get FetchManager --service");
-        console.log("   slice registry list");
+        Print.info("Use 'slice registry list' to see available components");
+        Print.commandExample("Get multiple components", "slice get Button Card Input");
+        Print.commandExample("Get service component", "slice get FetchManager --service");
+        Print.commandExample("Browse components", "slice browse");
         return;
       }
       
@@ -214,7 +230,7 @@ sliceClient
 
 sliceClient
   .command("browse")
-  .description("📚 Quick browse available components (shortcut for registry list)")
+  .description("Quick browse available components")
   .action(async () => {
     await runWithVersionCheck(async () => {
       await listRemoteComponents();
@@ -223,7 +239,7 @@ sliceClient
 
 sliceClient
   .command("sync")
-  .description("🔄 Quick sync local components (shortcut for registry sync)")
+  .description("Quick sync local components to latest versions")
   .option("-f, --force", "Force update without confirmation")
   .action(async (options) => {
     await runWithVersionCheck(async () => {
@@ -239,15 +255,22 @@ sliceClient
   .alias("upgrade")
   .description("Check for and show available updates for CLI and framework")
   .action(async () => {
-    Print.info("🔄 Checking for updates...");
-    const updateInfo = await versionChecker.checkForUpdates(false);
+    Print.info("Checking for updates...");
     
-    if (updateInfo) {
-      if (updateInfo.cli.status === 'current' && updateInfo.framework.status === 'current') {
-        Print.success("✅ All components are up to date!");
+    try {
+      const updateInfo = await versionChecker.checkForUpdates(false);
+      
+      if (updateInfo) {
+        if (updateInfo.cli.status === 'current' && updateInfo.framework.status === 'current') {
+          Print.success("All components are up to date!");
+        } else {
+          Print.info("Updates available - see details above");
+        }
+      } else {
+        Print.error("Could not check for updates. Please check your internet connection");
       }
-    } else {
-      Print.warning("⚠️  Could not check for updates. Please check your internet connection.");
+    } catch (error) {
+      Print.error(`Checking updates: ${error.message}`);
     }
   });
 
@@ -259,9 +282,9 @@ sliceClient
     subcommandTerm: (cmd) => cmd.name() + ' ' + cmd.usage()
   });
 
-// Custom help
+// Custom help - usando Print para consistencia
 sliceClient.addHelpText('after', `
-💡 Common Usage Examples:
+Common Usage Examples:
   slice init                     - Initialize new Slice.js project
   slice get Button Card Input    - Install Visual components from registry  
   slice get FetchManager -s      - Install Service component from registry
@@ -270,18 +293,28 @@ sliceClient.addHelpText('after', `
   slice component create         - Create new local component
   slice update                   - Check for CLI/framework updates
 
-📚 Command Categories:
+Command Categories:
   • init, version, update        - Project setup and maintenance
   • get, browse, sync            - Quick registry shortcuts  
   • component <cmd>              - Local component management
   • registry <cmd>               - Official repository operations
 
-🔗 More info: https://slice-js-docs.vercel.app/
+More info: https://slice-js-docs.vercel.app/
 `);
 
-// Default action
+// Default action with better messaging
 if (!process.argv.slice(2).length) {
   program.outputHelp();
+  Print.newLine();
+  Print.info("Start with: slice init");
+  Print.commandExample("View available components", "slice browse");
 }
+
+// Error handling for unknown commands
+program.on('command:*', () => {
+  Print.error('Invalid command. See available commands above');
+  Print.info("Use 'slice --help' for help");
+  process.exit(1);
+});
 
 program.parse();

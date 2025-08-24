@@ -85,7 +85,7 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                 scripts: {
                     // Main commands
                     'slice:init': 'node node_modules/slicejs-cli/client.js init',
-                    'slice:start': 'node node_modules/slicejs-cli/client.js start',
+                    'slice:start': 'node api/index.js',
                     'slice:version': 'node node_modules/slicejs-cli/client.js version',
                     'slice:update': 'node node_modules/slicejs-cli/client.js update',
                     
