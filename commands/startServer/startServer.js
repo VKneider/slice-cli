@@ -34,7 +34,6 @@ async function createProductionIndexFile() {
     const apiDir = path.join(__dirname, '../../../../api');
     const originalIndexPath = path.join(apiDir, 'index.js');
     const backupIndexPath = path.join(apiDir, 'index.dev.js');
-    const prodIndexPath = path.join(apiDir, 'index.prod.js');
     
     // Crear backup del index original si no existe
     if (!await fs.pathExists(backupIndexPath)) {
@@ -53,11 +52,8 @@ async function createProductionIndexFile() {
       "express.static(path.join(__dirname, '../dist'))"
     );
     
-    // Escribir archivo temporal de producción
-    await fs.writeFile(prodIndexPath, productionContent, 'utf8');
-    
-    // Reemplazar index.js con versión de producción
-    await fs.copy(prodIndexPath, originalIndexPath);
+    // Escribir la versión modificada directamente
+    await fs.writeFile(originalIndexPath, productionContent, 'utf8');
     
     Print.success('Express server configured for production mode');
     
@@ -164,7 +160,7 @@ export default async function startServer(options = {}) {
         throw new Error('No production build found. Run "slice build" first.');
       }
       
-      // Configurar Express para modo producción
+      // Configurar Express para modo producción (modifica api/index.js temporalmente)
       const configSuccess = await createProductionIndexFile();
       if (!configSuccess) {
         throw new Error('Failed to configure production server');
@@ -177,7 +173,7 @@ export default async function startServer(options = {}) {
       Print.info('Development mode: serving files from /src with hot reload');
     }
     
-    // Iniciar el servidor
+    // Iniciar el servidor (solo uno)
     await startNodeServer(port, mode);
     
   } catch (error) {
