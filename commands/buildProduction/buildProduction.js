@@ -412,34 +412,35 @@ export async function buildCommand(options = {}) {
 }
 
 /**
- * Verifica que las dependencias de build estén instaladas
+ * Verifica que las dependencias de build estén instaladas en el CLI
  */
 async function checkBuildDependencies() {
   try {
     Print.info('Checking build dependencies...');
     
-    const packageJsonPath = path.join(__dirname, '../../../../package.json');
+    // Verificar dependencias en el CLI en lugar del proyecto
+    const cliPackageJsonPath = path.join(__dirname, '../../package.json');
     
-    if (!await fs.pathExists(packageJsonPath)) {
-      throw new Error('package.json not found');
+    if (!await fs.pathExists(cliPackageJsonPath)) {
+      throw new Error('CLI package.json not found');
     }
     
-    const packageJson = await fs.readJson(packageJsonPath);
-    const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+    const cliPackageJson = await fs.readJson(cliPackageJsonPath);
+    const deps = { ...cliPackageJson.dependencies, ...cliPackageJson.devDependencies };
     
     const requiredDeps = ['terser', 'clean-css', 'html-minifier-terser'];
     const missing = requiredDeps.filter(dep => !deps[dep]);
     
     if (missing.length > 0) {
-      Print.error('Missing build dependencies:');
+      Print.error('Missing build dependencies in CLI:');
       missing.forEach(dep => console.log(`  • ${dep}`));
       Print.newLine();
-      Print.info('Install missing dependencies:');
-      console.log(`npm install --save-dev ${missing.join(' ')}`);
+      Print.info('Please update slicejs-cli to the latest version:');
+      console.log('npm install -g slicejs-cli@latest');
       return false;
     }
     
-    Print.success('All build dependencies are installed');
+    Print.success('All build dependencies are available in CLI');
     return true;
     
   } catch (error) {
