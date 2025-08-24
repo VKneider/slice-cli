@@ -667,4 +667,4 @@ async function syncComponents(options = {}) {
 }
 
 export default getComponents;
-export { listComponents, syncComponents };
+export { listComponents, syncComponents, ComponentRegistry };

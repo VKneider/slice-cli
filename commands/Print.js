@@ -90,4 +90,28 @@ export default class Print {
         }
         Print.separator();
     }
+
+    // Método para mostrar resultados de minificación
+    static minificationResult(filename, originalSize, minifiedSize, savingsPercent) {
+        const originalKB = (originalSize / 1024).toFixed(1);
+        const minifiedKB = (minifiedSize / 1024).toFixed(1);
+        
+        console.log('\x1b[32m', `  ✅ ${filename}`, '\x1b[0m');
+        console.log('\x1b[90m', `     ${originalKB}KB → ${minifiedKB}KB (${savingsPercent}% saved)`, '\x1b[0m');
+    }
+
+    // Método para mostrar progreso de build
+    static buildProgress(message) {
+        console.log('\x1b[36m', `🔄 ${message}`, '\x1b[0m');
+    }
+
+    // Método para mostrar estadísticas de servidor
+    static serverStats(mode, port, directory) {
+        Print.newLine();
+        console.log('\x1b[35m', `🌐 Server Configuration:`, '\x1b[0m');
+        console.log('\x1b[90m', `   Mode: ${mode}`, '\x1b[0m');
+        console.log('\x1b[90m', `   Port: ${port}`, '\x1b[0m');
+        console.log('\x1b[90m', `   Serving: /${directory}`, '\x1b[0m');
+        Print.newLine();
+    }
 }

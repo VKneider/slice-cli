@@ -6,6 +6,8 @@ import createComponent from "./commands/createComponent/createComponent.js";
 import listComponents from "./commands/listComponents/listComponents.js";
 import deleteComponent from "./commands/deleteComponent/deleteComponent.js";
 import getComponent, { listComponents as listRemoteComponents, syncComponents } from "./commands/getComponent/getComponent.js";
+import buildProduction, { buildCommand, serveProductionBuild } from "./commands/buildProduction/buildProduction.js";
+import startServer from "./commands/startServer/startServer.js";
 import versionChecker from "./commands/utils/versionChecker.js";
 import fs from "fs";
 import path from "path";
@@ -71,6 +73,80 @@ sliceClient
   .description("Show version information and check for updates")
   .action(async () => {
     await versionChecker.showVersionInfo();
+  });
+
+// BUILD COMMAND
+sliceClient
+  .command("build")
+  .description("Build project for production")
+  .option("--serve", "Start production server after build")
+  .option("--preview", "Start preview server after build")
+  .option("--analyze", "Analyze build without building")
+  .option("--skip-clean", "Skip cleaning previous build")
+  .option("-p, --port <port>", "Port for preview/serve server", 3001)
+  .action(async (options) => {
+    await runWithVersionCheck(async () => {
+      const success = await buildCommand({
+        serve: options.serve,
+        preview: options.preview,
+        analyze: options.analyze,
+        skipClean: options.skipClean,
+        port: parseInt(options.port)
+      });
+      
+      if (!success) {
+        process.exit(1);
+      }
+    });
+  });
+
+// START COMMAND (PRODUCTION)
+sliceClient
+  .command("start")
+  .description("Start production server (requires build first)")
+  .option("-p, --port <port>", "Port for production server", 3000)
+  .option("--build", "Build for production before starting")
+  .action(async (options) => {
+    await runWithVersionCheck(async () => {
+      const distDir = path.join(__dirname, "../../dist");
+      
+      // Verificar si existe build de producción
+      if (!fs.existsSync(distDir) && !options.build) {
+        Print.error("No production build found");
+        Print.info("Run 'slice build' first or use 'slice start --build'");
+        return false;
+      }
+      
+      // Si se solicita build, construir primero
+      if (options.build) {
+        Print.info("Building for production...");
+        const buildSuccess = await buildProduction();
+        if (!buildSuccess) {
+          Print.error("Build failed, cannot start production server");
+          return false;
+        }
+      }
+      
+      // Iniciar servidor de producción
+      await startServer({
+        mode: 'production',
+        port: parseInt(options.port)
+      });
+    });
+  });
+
+// DEV COMMAND (DEVELOPMENT)
+sliceClient
+  .command("dev")
+  .description("Start development server")
+  .option("-p, --port <port>", "Port for development server", 3000)
+  .action(async (options) => {
+    await runWithVersionCheck(async () => {
+      await startServer({
+        mode: 'development',
+        port: parseInt(options.port)
+      });
+    });
   });
 
 // COMPONENT COMMAND GROUP - For local component management
@@ -286,18 +362,26 @@ sliceClient
 sliceClient.addHelpText('after', `
 Common Usage Examples:
   slice init                     - Initialize new Slice.js project
+  slice dev                      - Start development server
+  slice build                    - Build for production
+  slice start                    - Start production server
   slice get Button Card Input    - Install Visual components from registry  
   slice get FetchManager -s      - Install Service component from registry
   slice browse                   - Browse all available components
   slice sync                     - Update local components to latest versions
   slice component create         - Create new local component
-  slice update                   - Check for CLI/framework updates
 
 Command Categories:
-  • init, version, update        - Project setup and maintenance
+  • init, dev, build, start      - Project lifecycle
   • get, browse, sync            - Quick registry shortcuts  
   • component <cmd>              - Local component management
   • registry <cmd>               - Official repository operations
+  • version, update              - Maintenance commands
+
+Development vs Production:
+  • slice dev    - Development server (serves from /src)
+  • slice build  - Create optimized /dist build  
+  • slice start  - Production server (serves from /dist)
 
 More info: https://slice-js-docs.vercel.app/
 `);
@@ -307,6 +391,7 @@ if (!process.argv.slice(2).length) {
   program.outputHelp();
   Print.newLine();
   Print.info("Start with: slice init");
+  Print.commandExample("Development", "slice dev");
   Print.commandExample("View available components", "slice browse");
 }
 
