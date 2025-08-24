@@ -317,4 +317,10 @@ program.on('command:*', () => {
   process.exit(1);
 });
 
+//CREATE HELP Command
+const helpCommand = sliceClient.command("help").description("Display help information for Slice.js CLI").action(() => {
+  sliceClient.outputHelp();
+}
+);
+
 program.parse();

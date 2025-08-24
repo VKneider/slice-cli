@@ -13,10 +13,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DOCS_REPO_BASE_URL = 'https://raw.githubusercontent.com/VKneider/slicejs_docs/master/src/Components';
 const COMPONENTS_REGISTRY_URL = 'https://raw.githubusercontent.com/VKneider/slicejs_docs/master/src/Components/components.js';
 
+/**
+ * Carga la configuración desde sliceConfig.json
+ * @returns {object} - Objeto de configuración
+ */
+const loadConfig = () => {
+  try {
+    const configPath = path.join(__dirname, '../../../src/sliceConfig.json');
+    if (!fs.existsSync(configPath)) {
+      throw new Error('sliceConfig.json not found in src folder');
+    }
+    const rawData = fs.readFileSync(configPath, 'utf-8');
+    return JSON.parse(rawData);
+  } catch (error) {
+    console.error(`Error loading configuration: ${error.message}`);
+    return null;
+  }
+};
 
 class ComponentRegistry {
   constructor() {
     this.componentsRegistry = null;
+    this.config = loadConfig();
   }
 
   async loadRegistry() {
@@ -49,6 +67,7 @@ class ComponentRegistry {
 
   async getLocalComponents() {
     try {
+      // ✅ CAMBIO: Usar ruta dinámica basada en sliceConfig.json
       const componentsPath = path.join(__dirname, '../../../src/Components/components.js');
       
       if (!await fs.pathExists(componentsPath)) {
@@ -76,9 +95,14 @@ class ComponentRegistry {
     Object.entries(localComponents).forEach(([name, category]) => {
       // Check if component exists in remote registry
       if (this.componentsRegistry[name] && this.componentsRegistry[name] === category) {
-        // Check if local component directory exists
+        // Check if local component directory exists using dynamic paths
         const categoryPath = validations.getCategoryPath(category);
-        const componentPath = path.join(__dirname, '../../../src', categoryPath, name);
+        
+        // ✅ CAMBIO: Determinar si estamos en modo producción
+        const isProduction = this.config?.production?.enabled === true;
+        const folderSuffix = isProduction ? 'dist' : 'src';
+        
+        const componentPath = path.join(__dirname, `../../../${folderSuffix}`, categoryPath, name);
         
         if (fs.pathExistsSync(componentPath)) {
           updatableComponents.push({
@@ -183,6 +207,7 @@ class ComponentRegistry {
   }
 
   async updateLocalRegistry(componentName, category) {
+    // ✅ CAMBIO PRINCIPAL: Usar ruta dinámica basada en sliceConfig.json
     const componentsPath = path.join(__dirname, '../../../src/Components/components.js');
     
     try {
@@ -235,7 +260,12 @@ class ComponentRegistry {
     }
 
     const categoryPath = validations.getCategoryPath(category);
-    const targetPath = path.join(__dirname, '../../../src', categoryPath, componentName);
+    
+    // ✅ CAMBIO: Usar configuración dinámica para determinar la ruta base
+    const isProduction = this.config?.production?.enabled === true;
+    const folderSuffix = isProduction ? 'dist' : 'src';
+    
+    const targetPath = path.join(__dirname, `../../../${folderSuffix}`, categoryPath, componentName);
 
     // Check if component already exists
     if (await fs.pathExists(targetPath) && !force) {
@@ -265,7 +295,7 @@ class ComponentRegistry {
       await this.updateLocalRegistry(componentName, category);
 
       Print.success(`${componentName} updated successfully from official repository!`);
-      console.log(`📁 Location: src/${categoryPath}/${componentName}/`);
+      console.log(`📁 Location: ${folderSuffix}/${categoryPath}/${componentName}/`);
       console.log(`📄 Files: ${downloadedFiles.join(', ')}`);
 
       return true;
@@ -566,7 +596,7 @@ async function listComponents() {
   }
 }
 
-// Sync components function - NEW
+// Sync components function
 async function syncComponents(options = {}) {
   const registry = new ComponentRegistry();
   
