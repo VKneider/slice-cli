@@ -1,4 +1,4 @@
-// commands/startServer/startServer.js
+// commands/startServer/startServer.js - VERSIÓN SIMPLIFICADA
 
 import fs from 'fs-extra';
 import path from 'path';
@@ -27,7 +27,7 @@ async function checkDevelopmentStructure() {
 }
 
 /**
- * Inicia el servidor Node.js
+ * Inicia el servidor Node.js - SIMPLIFICADO
  */
 function startNodeServer(port, mode) {
   return new Promise((resolve, reject) => {
@@ -50,30 +50,26 @@ function startNodeServer(port, mode) {
       reject(error);
     });
 
-    // Manejar Ctrl+C
+    // Manejar Ctrl+C - SIMPLIFICADO
     process.on('SIGINT', () => {
       Print.info('Shutting down server...');
       serverProcess.kill('SIGINT');
       process.exit(0);
     });
 
-    // Manejar cierre del proceso
     process.on('SIGTERM', () => {
       serverProcess.kill('SIGTERM');
     });
 
-    // El servidor se considera iniciado exitosamente después de un breve delay
+    // NO mostrar mensajes duplicados - el api/index.js ya se encarga
     setTimeout(() => {
-      Print.success(`${mode === 'production' ? 'Production' : 'Development'} server running at http://localhost:${port}`);
-      Print.info(`Serving files from /${mode === 'production' ? 'dist' : 'src'} directory`);
-      Print.info('Press Ctrl+C to stop the server');
       resolve(serverProcess);
-    }, 1000);
+    }, 500);
   });
 }
 
 /**
- * Función principal para iniciar servidor - SIMPLIFICADA
+ * Función principal para iniciar servidor - ULTRA SIMPLIFICADA
  */
 export default async function startServer(options = {}) {
   const { mode = 'development', port = 3000 } = options;
@@ -97,7 +93,7 @@ export default async function startServer(options = {}) {
       Print.info('Development mode: serving files from /src with hot reload');
     }
     
-    // Iniciar el servidor - api/index.js detectará automáticamente el modo
+    // Iniciar el servidor - api/index.js maneja todo automáticamente
     await startNodeServer(port, mode);
     
   } catch (error) {

@@ -11,29 +11,50 @@ import Print from '../Print.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Opciones de minificación para diferentes tipos de archivos
+ * Opciones de minificación para diferentes tipos de archivos - CORREGIDAS
  */
 const getMinificationOptions = () => ({
   js: {
     compress: {
       dead_code: true,
-      drop_console: true, // Remover console.log en producción
+      drop_console: false, // NO remover console.log para evitar problemas
       drop_debugger: true,
-      pure_funcs: ['console.log', 'console.info', 'console.warn'],
-      passes: 2
+      pure_funcs: [], // NO remover funciones específicas
+      passes: 1, // Reducir pasadas para ser menos agresivo
+      keep_classnames: true, // IMPORTANTE: Preservar nombres de clases
+      keep_fnames: true // IMPORTANTE: Preservar nombres de funciones
     },
     mangle: {
-      toplevel: true,
-      reserved: ['Slice', 'Controller', 'StylesManager'] // Preservar clases principales
+      toplevel: false, // NO hacer mangle a nivel superior
+      keep_classnames: true, // Preservar nombres de clases
+      keep_fnames: true, // Preservar nombres de funciones
+      reserved: [
+        // Framework core
+        'Slice', 'Controller', 'StylesManager', 'ThemeManager', 'Logger',
+        // Métodos importantes
+        'slice', 'build', 'init', 'attachTemplate', 'getComponent',
+        // Eventos y propiedades de componentes
+        'constructor', 'connectedCallback', 'disconnectedCallback',
+        'attributeChangedCallback', 'adoptedCallback',
+        // Variables comunes en componentes
+        'componentName', 'props', 'options', 'value', 'disabled',
+        // HTML Elements y DOM
+        'HTMLElement', 'customElements', 'define', 'querySelector',
+        'querySelectorAll', 'addEventListener', 'removeEventListener',
+        // Métodos de componentes Slice.js
+        'setComponentProps', 'componentCategories', 'templates',
+        'activeComponents', 'classes', 'requestedStyles'
+      ]
     },
     output: {
       comments: false,
-      beautify: false
+      beautify: false,
+      keep_quoted_props: true // Preservar propiedades entre comillas
     },
-    toplevel: true
+    toplevel: false // NO optimizar a nivel superior
   },
   css: {
-    level: 2, // Optimización agresiva
+    level: 1, // Optimización moderada en lugar de agresiva
     returnPromise: false
   },
   html: {
@@ -41,20 +62,38 @@ const getMinificationOptions = () => ({
     removeComments: true,
     removeRedundantAttributes: true,
     removeEmptyAttributes: true,
-    minifyCSS: true,
-    minifyJS: true,
+    minifyCSS: false, // NO minificar CSS inline para evitar problemas
+    minifyJS: false, // NO minificar JS inline para evitar problemas
     useShortDoctype: true,
-    removeAttributeQuotes: true,
-    removeOptionalTags: true
+    removeAttributeQuotes: false, // Mantener comillas en atributos
+    removeOptionalTags: false // Mantener tags opcionales
   }
 });
 
 /**
- * Minifica un archivo JavaScript
+ * Minifica un archivo JavaScript de forma segura
  */
 async function minifyJavaScript(content, filename) {
   try {
-    const options = getMinificationOptions().js;
+    // Para archivos de componentes, ser menos agresivo
+    const isComponentFile = filename.includes('/Components/') || filename.includes('\\Components\\');
+    
+    let options = getMinificationOptions().js;
+    
+    if (isComponentFile) {
+      // Configuración especial para archivos de componentes
+      options = {
+        ...options,
+        compress: {
+          ...options.compress,
+          passes: 1,
+          keep_classnames: true,
+          keep_fnames: true
+        },
+        mangle: false // NO hacer mangle en archivos de componentes
+      };
+    }
+    
     const result = await terserMinify(content, options);
     
     if (result.error) {
@@ -70,7 +109,9 @@ async function minifyJavaScript(content, filename) {
     return result.code;
   } catch (error) {
     Print.error(`Error minifying ${filename}: ${error.message}`);
-    throw error;
+    // En caso de error, devolver contenido original
+    Print.warning(`Using original content for ${filename}`);
+    return content;
   }
 }
 
