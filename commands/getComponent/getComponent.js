@@ -19,7 +19,8 @@ const COMPONENTS_REGISTRY_URL = 'https://raw.githubusercontent.com/VKneider/slic
  */
 const loadConfig = () => {
   try {
-    const configPath = path.join(__dirname, '../../../src/sliceConfig.json');
+    // ✅ CORREGIDO: Usar 4 niveles como en listComponents para compatibilidad con node_modules
+    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
     if (!fs.existsSync(configPath)) {
       throw new Error('sliceConfig.json not found in src folder');
     }
@@ -67,8 +68,8 @@ class ComponentRegistry {
 
   async getLocalComponents() {
     try {
-      // ✅ CAMBIO: Usar ruta dinámica basada en sliceConfig.json
-      const componentsPath = path.join(__dirname, '../../../src/Components/components.js');
+      // ✅ CORREGIDO: Usar 4 niveles como en listComponents para compatibilidad con node_modules
+      const componentsPath = path.join(__dirname, '../../../../src/Components/components.js');
       
       if (!await fs.pathExists(componentsPath)) {
         return {};
@@ -98,11 +99,11 @@ class ComponentRegistry {
         // Check if local component directory exists using dynamic paths
         const categoryPath = validations.getCategoryPath(category);
         
-        // ✅ CAMBIO: Determinar si estamos en modo producción
+        // ✅ CORREGIDO: Usar 4 niveles para compatibilidad con node_modules
         const isProduction = this.config?.production?.enabled === true;
         const folderSuffix = isProduction ? 'dist' : 'src';
         
-        const componentPath = path.join(__dirname, `../../../${folderSuffix}`, categoryPath, name);
+        const componentPath = path.join(__dirname, `../../../../${folderSuffix}`, categoryPath, name);
         
         if (fs.pathExistsSync(componentPath)) {
           updatableComponents.push({
@@ -207,8 +208,8 @@ class ComponentRegistry {
   }
 
   async updateLocalRegistry(componentName, category) {
-    // ✅ CAMBIO PRINCIPAL: Usar ruta dinámica basada en sliceConfig.json
-    const componentsPath = path.join(__dirname, '../../../src/Components/components.js');
+    // ✅ CORREGIDO: Usar 4 niveles para compatibilidad con node_modules
+    const componentsPath = path.join(__dirname, '../../../../src/Components/components.js');
     
     try {
       let content = await fs.readFile(componentsPath, 'utf8');
@@ -261,11 +262,11 @@ class ComponentRegistry {
 
     const categoryPath = validations.getCategoryPath(category);
     
-    // ✅ CAMBIO: Usar configuración dinámica para determinar la ruta base
+    // ✅ CORREGIDO: Usar 4 niveles para compatibilidad con node_modules
     const isProduction = this.config?.production?.enabled === true;
     const folderSuffix = isProduction ? 'dist' : 'src';
     
-    const targetPath = path.join(__dirname, `../../../${folderSuffix}`, categoryPath, componentName);
+    const targetPath = path.join(__dirname, `../../../../${folderSuffix}`, categoryPath, componentName);
 
     // Check if component already exists
     if (await fs.pathExists(targetPath) && !force) {
@@ -273,7 +274,7 @@ class ComponentRegistry {
         {
           type: 'confirm',
           name: 'overwrite',
-          message: `El componente '${componentName}' ya existe localmente. ¿Deseas sobrescribirlo con la versión del repositorio?`,
+          message: `The component '${componentName}' already exists locally. Do you really want to overwrite your own version for the repository version?`,
           default: false
         }
       ]);
