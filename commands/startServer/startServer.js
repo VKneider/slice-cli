@@ -27,65 +27,6 @@ async function checkDevelopmentStructure() {
 }
 
 /**
- * Modifica temporalmente el servidor Express para modo producción
- */
-async function createProductionIndexFile() {
-  try {
-    const apiDir = path.join(__dirname, '../../../../api');
-    const originalIndexPath = path.join(apiDir, 'index.js');
-    const backupIndexPath = path.join(apiDir, 'index.dev.js');
-    
-    // Crear backup del index original si no existe
-    if (!await fs.pathExists(backupIndexPath)) {
-      await fs.copy(originalIndexPath, backupIndexPath);
-    }
-    
-    // Leer el contenido original
-    const originalContent = await fs.readFile(originalIndexPath, 'utf8');
-    
-    // Modificar para servir desde /dist en lugar de /src
-    const productionContent = originalContent.replace(
-      /express\.static\(['"`]src['"`]\)/g,
-      "express.static('dist')"
-    ).replace(
-      /express\.static\(path\.join\(__dirname,\s*['"`]\.\.\/src['"`]\)\)/g,
-      "express.static(path.join(__dirname, '../dist'))"
-    );
-    
-    // Escribir la versión modificada directamente
-    await fs.writeFile(originalIndexPath, productionContent, 'utf8');
-    
-    Print.success('Express server configured for production mode');
-    
-    return true;
-  } catch (error) {
-    Print.error(`Error configuring production server: ${error.message}`);
-    return false;
-  }
-}
-
-/**
- * Restaura el servidor Express al modo desarrollo
- */
-async function restoreDevelopmentIndexFile() {
-  try {
-    const apiDir = path.join(__dirname, '../../../../api');
-    const originalIndexPath = path.join(apiDir, 'index.js');
-    const backupIndexPath = path.join(apiDir, 'index.dev.js');
-    
-    if (await fs.pathExists(backupIndexPath)) {
-      await fs.copy(backupIndexPath, originalIndexPath);
-      Print.success('Express server restored to development mode');
-    }
-    
-    return true;
-  } catch (error) {
-    Print.error(`Error restoring development server: ${error.message}`);
-    return false;
-  }
-}
-
-/**
  * Inicia el servidor Node.js
  */
 function startNodeServer(port, mode) {
@@ -99,7 +40,8 @@ function startNodeServer(port, mode) {
       env: {
         ...process.env,
         PORT: port,
-        NODE_ENV: mode === 'production' ? 'production' : 'development'
+        NODE_ENV: mode === 'production' ? 'production' : 'development',
+        SLICE_CLI_MODE: 'true' // Flag para que api/index.js sepa que viene del CLI
       }
     });
 
@@ -108,24 +50,15 @@ function startNodeServer(port, mode) {
       reject(error);
     });
 
-    // Manejar Ctrl+C para limpiar archivos temporales
-    process.on('SIGINT', async () => {
+    // Manejar Ctrl+C
+    process.on('SIGINT', () => {
       Print.info('Shutting down server...');
-      
-      if (mode === 'production') {
-        await restoreDevelopmentIndexFile();
-      }
-      
       serverProcess.kill('SIGINT');
       process.exit(0);
     });
 
     // Manejar cierre del proceso
-    process.on('SIGTERM', async () => {
-      if (mode === 'production') {
-        await restoreDevelopmentIndexFile();
-      }
-      
+    process.on('SIGTERM', () => {
       serverProcess.kill('SIGTERM');
     });
 
@@ -140,7 +73,7 @@ function startNodeServer(port, mode) {
 }
 
 /**
- * Función principal para iniciar servidor
+ * Función principal para iniciar servidor - SIMPLIFICADA
  */
 export default async function startServer(options = {}) {
   const { mode = 'development', port = 3000 } = options;
@@ -155,35 +88,20 @@ export default async function startServer(options = {}) {
     }
     
     if (mode === 'production') {
-      // Modo producción: verificar build y configurar servidor
+      // Verificar que existe build de producción
       if (!await checkProductionBuild()) {
         throw new Error('No production build found. Run "slice build" first.');
       }
-      
-      // Configurar Express para modo producción (modifica api/index.js temporalmente)
-      const configSuccess = await createProductionIndexFile();
-      if (!configSuccess) {
-        throw new Error('Failed to configure production server');
-      }
-      
       Print.info('Production mode: serving optimized files from /dist');
     } else {
-      // Modo desarrollo: asegurar que está en modo desarrollo
-      await restoreDevelopmentIndexFile();
       Print.info('Development mode: serving files from /src with hot reload');
     }
     
-    // Iniciar el servidor (solo uno)
+    // Iniciar el servidor - api/index.js detectará automáticamente el modo
     await startNodeServer(port, mode);
     
   } catch (error) {
     Print.error(`Failed to start server: ${error.message}`);
-    
-    // Limpiar en caso de error
-    if (mode === 'production') {
-      await restoreDevelopmentIndexFile();
-    }
-    
     throw error;
   }
 }

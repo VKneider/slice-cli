@@ -377,7 +377,7 @@ export async function serveProductionBuild(port = 3001) {
 }
 
 /**
- * Comando build con opciones
+ * Comando build con opciones - CORREGIDO
  */
 export async function buildCommand(options = {}) {
   // Verificar dependencias necesarias
@@ -400,16 +400,17 @@ export async function buildCommand(options = {}) {
   // Build completo
   const success = await buildProduction(options);
   
+  // Solo mostrar mensaje informativo, no ejecutar servidor automáticamente
   if (success && options.preview) {
     Print.newLine();
-    Print.info('Starting preview server...');
-    setTimeout(() => {
-      serveProductionBuild(options.port);
-    }, 1000);
+    Print.info('✨ Build completed successfully!');
+    Print.info('💡 Use "slice build --serve" to preview the production build');
+    Print.info('💡 Or "slice start" to start production server');
   }
   
   return success;
 }
+
 
 /**
  * Verifica que las dependencias de build estén instaladas en el CLI
