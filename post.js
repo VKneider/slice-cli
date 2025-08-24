@@ -22,11 +22,10 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         // Add custom commands to the project scripts
         projectPackageJson.scripts = projectPackageJson.scripts || {};
         
-        // Main project commands
+        // Main project commands - SOLO DEVELOPMENT
         projectPackageJson.scripts['slice:init'] = 'node node_modules/slicejs-cli/client.js init';
         projectPackageJson.scripts['slice:dev'] = 'node api/index.js --development';
-        projectPackageJson.scripts['slice:start'] = 'node api/index.js --production';
-        projectPackageJson.scripts['slice:build'] = 'node node_modules/slicejs-cli/client.js build';
+        projectPackageJson.scripts['slice:start'] = 'node api/index.js --development';
         projectPackageJson.scripts['slice:version'] = 'node node_modules/slicejs-cli/client.js version';
         projectPackageJson.scripts['slice:update'] = 'node node_modules/slicejs-cli/client.js update';
         
@@ -45,12 +44,7 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         projectPackageJson.scripts['slice:registry-list'] = 'node node_modules/slicejs-cli/client.js registry list';
         projectPackageJson.scripts['slice:registry-sync'] = 'node node_modules/slicejs-cli/client.js registry sync';
         
-        // Build-related commands
-        projectPackageJson.scripts['slice:build-serve'] = 'node node_modules/slicejs-cli/client.js build --serve';
-        projectPackageJson.scripts['slice:build-preview'] = 'node node_modules/slicejs-cli/client.js build --preview';
-        projectPackageJson.scripts['slice:build-analyze'] = 'node node_modules/slicejs-cli/client.js build --analyze';
-        
-        // Legacy/compatibility commands - ACTUALIZADOS
+        // Legacy commands - SOLO DEVELOPMENT
         projectPackageJson.scripts['run'] = 'node api/index.js --development';
         projectPackageJson.scripts['development'] = 'node api/index.js --development';
 
@@ -68,8 +62,7 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         console.log('\n🚀 Main workflow commands:');
         console.log('  npm run slice:init         - Initialize Slice.js project');
         console.log('  npm run slice:dev          - Start development server (serves from /src)');
-        console.log('  npm run slice:build        - Build for production (creates /dist)');
-        console.log('  npm run slice:start        - Start production server (serves from /dist)');
+        console.log('  npm run slice:start        - Start development server (same as dev)');
         console.log('\n📦 Component management:');
         console.log('  npm run slice:get Button   - Get components from official repository');
         console.log('  npm run slice:browse       - View all available components');
@@ -78,23 +71,14 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         console.log('  npm run slice:create       - Create local component');
         console.log('  npm run slice:list         - List local components');
         console.log('  npm run slice:delete       - Delete local component');
-        console.log('\n🔧 Build utilities:');
-        console.log('  npm run slice:build-serve  - Build and serve immediately');
-        console.log('  npm run slice:build-preview- Build and preview');
-        console.log('  npm run slice:build-analyze- Analyze build size');
         console.log('\n🔧 Other utilities:');
         console.log('  npm run slice:version      - View version information');
         console.log('  npm run slice:update       - Check for available updates');
-        console.log('\n🎯 Development workflow:');
+        console.log('\n🎯 Simplified workflow:');
         console.log('  1. npm run slice:init      - Initialize project');
-        console.log('  2. npm run slice:dev       - Develop with hot reload');
-        console.log('  3. npm run slice:build     - Build for production');
-        console.log('  4. npm run slice:start     - Test production build');
-        console.log('\n💡 Tip: Use "slice:sync" to keep your components updated');
-        console.log('\n🔧 New argument-based system:');
-        console.log('  • slice:dev   → node api/index.js --development');
-        console.log('  • slice:start → node api/index.js --production');
-        console.log('  • Arguments take precedence over environment variables');
+        console.log('  2. npm run slice:dev       - Start development server');
+        console.log('  3. Develop and iterate     - No build step needed!');
+        console.log('\n💡 Development-focused: All commands serve from /src for instant changes');
     })
     .catch(err => {
         if (err.code === 'ENOENT') {
@@ -105,11 +89,10 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                 description: 'Slice.js project',
                 main: 'api/index.js',
                 scripts: {
-                    // Main workflow commands - UPDATED with arguments
+                    // Main workflow commands - SOLO DEVELOPMENT
                     'slice:init': 'node node_modules/slicejs-cli/client.js init',
                     'slice:dev': 'node api/index.js --development',
-                    'slice:start': 'node api/index.js --production',
-                    'slice:build': 'node node_modules/slicejs-cli/client.js build',
+                    'slice:start': 'node api/index.js --development',
                     'slice:version': 'node node_modules/slicejs-cli/client.js version',
                     'slice:update': 'node node_modules/slicejs-cli/client.js update',
                     
@@ -123,12 +106,7 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                     'slice:browse': 'node node_modules/slicejs-cli/client.js browse',
                     'slice:sync': 'node node_modules/slicejs-cli/client.js sync',
                     
-                    // Build utilities
-                    'slice:build-serve': 'node node_modules/slicejs-cli/client.js build --serve',
-                    'slice:build-preview': 'node node_modules/slicejs-cli/client.js build --preview',
-                    'slice:build-analyze': 'node node_modules/slicejs-cli/client.js build --analyze',
-                    
-                    // Legacy commands - UPDATED
+                    // Legacy commands - SOLO DEVELOPMENT
                     'run': 'node api/index.js --development',
                     'development': 'node api/index.js --development'
                 },
@@ -145,14 +123,14 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
     })
     .then(() => {
         console.log('✅ SliceJS CLI commands configured successfully');
-        console.log('\n🎯 Updated workflow:');
+        console.log('\n🎯 Simplified development workflow:');
         console.log('  npm run slice:dev    → node api/index.js --development (serves /src)');
-        console.log('  npm run slice:start  → node api/index.js --production (serves /dist)');
+        console.log('  npm run slice:start  → node api/index.js --development (same as dev)');
         console.log('\n🔧 Benefits:');
-        console.log('  • Clear argument-based mode detection');
-        console.log('  • No confusion between src/dist directories');
-        console.log('  • Maintains backward compatibility with NODE_ENV');
-        console.log('  • More reliable and predictable behavior');
+        console.log('  • Simple development-only workflow');
+        console.log('  • Instant changes without build steps');
+        console.log('  • Always serves from /src directory');
+        console.log('  • Interactive menu always available');
     })
     .catch(err => {
         console.error('❌ Error setting up package.json:', err.message);

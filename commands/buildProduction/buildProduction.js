@@ -1,9 +1,9 @@
-// commands/buildProduction/buildProduction.js - CON SLICECONFIG PORT
+// commands/buildProduction/buildProduction.js - VERSIÓN LIMPIA
 
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import UglifyJS from 'uglify-js';
+import { minify as terserMinify } from 'terser';
 import { minify } from 'html-minifier-terser';
 import CleanCSS from 'clean-css';
 import Print from '../Print.js';
@@ -36,7 +36,67 @@ async function checkBuildDependencies() {
     return false;
   }
   
-  return true;
+  try {
+    await import('terser');
+    await import('clean-css');
+    await import('html-minifier-terser');
+    Print.success('Build dependencies available');
+    return true;
+  } catch (error) {
+    Print.warning('Some build dependencies missing - using fallback copy mode');
+    return true;
+  }
+}
+
+/**
+ * Verifica que existan los archivos críticos para Slice.js
+ */
+async function verifySliceFiles(srcDir) {
+  Print.info('Verifying Slice.js critical files...');
+  
+  const criticalFiles = [
+    'sliceConfig.json',
+    'Components/components.js',
+    'App/index.js'
+  ];
+  
+  for (const file of criticalFiles) {
+    const filePath = path.join(srcDir, file);
+    if (!await fs.pathExists(filePath)) {
+      throw new Error(`Critical Slice.js file missing: ${file}`);
+    }
+  }
+  
+  Print.success('All critical Slice.js files verified');
+}
+
+/**
+ * Verifica la integridad del build para Slice.js
+ */
+async function verifyBuildIntegrity(distDir) {
+  Print.info('Verifying build integrity for Slice.js...');
+  
+  const criticalBuiltFiles = [
+    'sliceConfig.json',
+    'Components/components.js',
+    'App/index.js'
+  ];
+  
+  for (const file of criticalBuiltFiles) {
+    const filePath = path.join(distDir, file);
+    if (!await fs.pathExists(filePath)) {
+      throw new Error(`Critical built file missing: ${file}`);
+    }
+    
+    if (file === 'Components/components.js') {
+      const content = await fs.readFile(filePath, 'utf8');
+      if (!content.includes('const components') || !content.includes('export default')) {
+        throw new Error('components.js structure corrupted during build');
+      }
+    }
+  }
+  
+  Print.success('Build integrity verified - all Slice.js components preserved');
 }
 
 /**
@@ -77,48 +137,130 @@ async function processDirectory(srcPath, distPath, baseSrcPath) {
  */
 async function processFile(srcFilePath, distFilePath) {
   const ext = path.extname(srcFilePath).toLowerCase();
+  const fileName = path.basename(srcFilePath);
   
   try {
-    if (ext === '.js') {
+    if (fileName === 'components.js') {
+      await processComponentsFile(srcFilePath, distFilePath);
+    } else if (ext === '.js') {
       await minifyJavaScript(srcFilePath, distFilePath);
     } else if (ext === '.css') {
       await minifyCSS(srcFilePath, distFilePath);
     } else if (ext === '.html') {
       await minifyHTML(srcFilePath, distFilePath);
-    } else {
-      // Copiar archivos que no necesitan minificación
+    } else if (fileName === 'sliceConfig.json') {
       await fs.copy(srcFilePath, distFilePath);
+      Print.info(`📄 Preserved: ${fileName} (configuration file)`);
+    } else {
+      await fs.copy(srcFilePath, distFilePath);
+      const stat = await fs.stat(srcFilePath);
+      const sizeKB = (stat.size / 1024).toFixed(1);
+      Print.info(`📄 Copied: ${fileName} (${sizeKB} KB)`);
     }
   } catch (error) {
-    Print.error(`Processing ${path.basename(srcFilePath)}: ${error.message}`);
-    // Copiar archivo original si falla la minificación
+    Print.error(`Processing ${fileName}: ${error.message}`);
     await fs.copy(srcFilePath, distFilePath);
   }
 }
 
 /**
- * Minifica archivos JavaScript
+ * Procesa el archivo components.js de forma especial
+ */
+async function processComponentsFile(srcPath, distPath) {
+  const content = await fs.readFile(srcPath, 'utf8');
+  const originalSize = Buffer.byteLength(content, 'utf8');
+  
+  const result = await terserMinify(content, {
+    compress: false,
+    mangle: false,
+    format: {
+      comments: false,
+      beautify: false,
+      indent_level: 0
+    }
+  });
+
+  if (result.error) {
+    throw new Error(`Terser error in components.js: ${result.error}`);
+  }
+
+  await fs.writeFile(distPath, result.code, 'utf8');
+  
+  const minifiedSize = Buffer.byteLength(result.code, 'utf8');
+  const savings = Math.round(((originalSize - minifiedSize) / originalSize) * 100);
+  
+  Print.minificationResult(`${path.basename(srcPath)} (preserved structure)`, originalSize, minifiedSize, savings);
+}
+
+/**
+ * Minifica archivos JavaScript preservando la arquitectura de Slice.js
  */
 async function minifyJavaScript(srcPath, distPath) {
   const content = await fs.readFile(srcPath, 'utf8');
   const originalSize = Buffer.byteLength(content, 'utf8');
   
-  const result = UglifyJS.minify(content, {
+  const result = await terserMinify(content, {
     compress: {
       drop_console: false,
       drop_debugger: true,
-      pure_funcs: ['console.log']
+      pure_funcs: [],
+      passes: 1,
+      unused: false,
+      side_effects: false,
+      reduce_vars: false,
+      collapse_vars: false
     },
     mangle: {
-      reserved: ['slice', 'Slice']
+      reserved: [
+        // Core Slice
+        'slice', 'Slice', 'SliceJS', 'window', 'document',
+        // Clases principales
+        'Controller', 'StylesManager', 'Router', 'Logger', 'Debugger',
+        // Métodos de Slice
+        'getClass', 'isProduction', 'getComponent', 'build', 'setTheme', 'attachTemplate',
+        // Controller
+        'componentCategories', 'templates', 'classes', 'requestedStyles', 'activeComponents',
+        'registerComponent', 'registerComponentsRecursively', 'loadTemplateToComponent',
+        'fetchText', 'setComponentProps', 'verifyComponentIds', 'destroyComponent',
+        // StylesManager
+        'componentStyles', 'themeManager', 'init', 'appendComponentStyles', 'registerComponentStyles',
+        // Router
+        'routes', 'pathToRouteMap', 'activeRoute', 'navigate', 'matchRoute', 'handleRoute',
+        'onRouteChange', 'loadInitialRoute', 'renderRoutesComponentsInPage',
+        // Propiedades de componentes
+        'sliceId', 'sliceType', 'sliceConfig', 'debuggerProps', 'parentComponent',
+        'value', 'customColor', 'icon', 'layout', 'view', 'items', 'columns', 'rows',
+        'onClickCallback', 'props',
+        // Custom Elements
+        'customElements', 'define', 'HTMLElement',
+        // DOM APIs críticas
+        'addEventListener', 'removeEventListener', 'querySelector', 'querySelectorAll',
+        'appendChild', 'removeChild', 'innerHTML', 'textContent', 'style', 'classList',
+        // Lifecycle
+        'beforeMount', 'afterMount', 'beforeDestroy', 'afterDestroy',
+        'mount', 'unmount', 'destroy', 'update', 'start', 'stop',
+        // Browser APIs
+        'fetch', 'setTimeout', 'clearTimeout', 'localStorage', 'history', 'pushState',
+        // Exports/Imports
+        'default', 'export', 'import', 'from', 'await', 'async',
+        // Nombres de componentes
+        'Button', 'Grid', 'Layout', 'HomePage', 'NotFound', 'Loading', 'TreeView', 'Link',
+        'FetchManager', 'Translator'
+      ],
+      properties: {
+        regex: /^(slice|_|\$|on[A-Z]|get|set|has|is)/
+      }
     },
-    output: {
-      comments: false
-    }
+    format: {
+      comments: false,
+      beautify: false
+    },
+    keep_fnames: true,
+    keep_classnames: true
   });
 
   if (result.error) {
-    throw new Error(`UglifyJS error: ${result.error}`);
+    throw new Error(`Terser error: ${result.error}`);
   }
 
   await fs.writeFile(distPath, result.code, 'utf8');
@@ -170,7 +312,14 @@ async function minifyHTML(srcPath, distPath) {
     removeStyleLinkTypeAttributes: true,
     useShortDoctype: true,
     minifyCSS: true,
-    minifyJS: true
+    minifyJS: {
+      mangle: {
+        reserved: ['slice', 'Slice', 'SliceJS', 'sliceId', 'sliceConfig']
+      }
+    },
+    ignoreCustomFragments: [
+      /slice-[\w-]+="[^"]*"/g
+    ]
   });
 
   await fs.writeFile(distPath, minified, 'utf8');
@@ -255,7 +404,7 @@ async function analyzeBuild() {
 }
 
 /**
- * Función principal de build
+ * FUNCIÓN PRINCIPAL DE BUILD
  */
 export default async function buildProduction(options = {}) {
   const startTime = Date.now();
@@ -267,12 +416,13 @@ export default async function buildProduction(options = {}) {
     const srcDir = path.join(__dirname, '../../../../src');
     const distDir = path.join(__dirname, '../../../../dist');
     
-    // Verificar que existe el directorio src
     if (!await fs.pathExists(srcDir)) {
       throw new Error('Source directory not found. Run "slice init" first.');
     }
 
-    // 1. Limpiar directorio dist
+    await verifySliceFiles(srcDir);
+
+    // Limpiar directorio dist
     if (await fs.pathExists(distDir)) {
       if (!options.skipClean) {
         Print.info('Cleaning previous build...');
@@ -282,32 +432,26 @@ export default async function buildProduction(options = {}) {
     }
     
     await fs.ensureDir(distDir);
-
-    // 2. Copiar sliceConfig.json sin modificaciones
     await copySliceConfig();
 
-    // 3. Procesar todos los archivos de src
-    Print.info('Processing and minifying source files...');
+    // Procesar archivos
+    Print.info('Processing and optimizing source files for Slice.js...');
     await processDirectory(srcDir, distDir, srcDir);
     Print.success('All source files processed and optimized');
 
-    // 4. Crear bundle optimizado del archivo principal
+    await verifyBuildIntegrity(distDir);
     await createOptimizedBundle();
-
-    // 5. Generar estadísticas
     await generateBuildStats(srcDir, distDir);
 
-    // 6. Tiempo total
     const buildTime = ((Date.now() - startTime) / 1000).toFixed(1);
     
     Print.newLine();
-    Print.success(`✨ Production build completed in ${buildTime}s`);
+    Print.success(`✨ Slice.js production build completed in ${buildTime}s`);
     Print.info('Your optimized project is ready in the /dist directory');
     Print.newLine();
     Print.info('Next steps:');
     console.log('  • Use "npm run slice:start" to test the production build');
-    console.log('  • Deploy both /api and /dist directories to your hosting provider');
-    console.log('  • Use "slice build --serve" to preview the production build');
+    console.log('  • All Slice.js components and architecture preserved');
     
     return true;
 
@@ -334,19 +478,15 @@ export async function serveProductionBuild(port) {
 
     Print.info(`Starting production preview server on port ${finalPort}...`);
     
-    // Implementar servidor estático simple
     const express = await import('express');
     const app = express.default();
     
-    // Servir archivos estáticos desde dist
     app.use(express.default.static(distDir));
     
-    // SPA fallback - servir index.html para rutas no encontradas
     app.get('*', (req, res) => {
       const indexPath = path.join(distDir, 'App/index.html');
       const fallbackPath = path.join(distDir, 'index.html');
       
-      // Intentar primero App/index.html, luego index.html
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else if (fs.existsSync(fallbackPath)) {
@@ -376,24 +516,20 @@ export async function buildCommand(options = {}) {
   const config = loadConfig();
   const defaultPort = config?.server?.port || 3001;
   
-  // Verificar dependencias necesarias
   if (!await checkBuildDependencies()) {
     return false;
   }
 
   if (options.serve) {
-    // Solo servir build existente
     await serveProductionBuild(options.port || defaultPort);
     return true;
   }
 
   if (options.analyze) {
-    // Analizar build sin construir
     await analyzeBuild();
     return true;
   }
 
-  // Build completo
   const success = await buildProduction(options);
   
   if (success && options.preview) {
