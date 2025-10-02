@@ -43,8 +43,8 @@ const getComponents = () => {
     const config = loadConfig();
     if (!config) return {};
 
-    const isProduction = config.production.enabled===true;
-    const folderSuffix = isProduction ? 'dist' : 'src';
+       //const isProduction = config.production.enabled===true;
+    const folderSuffix = 'src'; // Siempre usar 'src' para desarrollo
 
     const componentPaths = config.paths?.components || {}; // Obtiene dinámicamente las rutas de los componentes
     let allComponents = new Map();
