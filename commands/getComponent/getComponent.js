@@ -39,32 +39,62 @@ class ComponentRegistry {
   }
 
   async loadRegistry() {
-    Print.info('Loading component registry from official repository...');
+  Print.info('Loading component registry from official repository...');
+  
+  try {
+    const response = await fetch(COMPONENTS_REGISTRY_URL);
     
-    try {
-      const response = await fetch(COMPONENTS_REGISTRY_URL);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const content = await response.text();
-      
-      // Parse the components.js file content
-      const match = content.match(/const components = ({[\s\S]*?});/);
-      if (!match) {
-        throw new Error('Invalid components.js format from repository');
-      }
-
-      this.componentsRegistry = eval('(' + match[1] + ')');
-      Print.success('Component registry loaded successfully');
-      
-    } catch (error) {
-      Print.error(`Loading component registry: ${error.message}`);
-      Print.info('Check your internet connection and repository accessibility');
-      throw error;
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+
+    const content = await response.text();
+    
+    // Parse the components.js file content
+    const match = content.match(/const components = ({[\s\S]*?});/);
+    if (!match) {
+      throw new Error('Invalid components.js format from repository');
+    }
+
+    const allComponents = eval('(' + match[1] + ')');
+    
+    // ✅ NUEVO: FILTRAR solo componentes Visual y Service
+    this.componentsRegistry = this.filterOfficialComponents(allComponents);
+    
+    Print.success('Component registry loaded successfully');
+    
+  } catch (error) {
+    Print.error(`Loading component registry: ${error.message}`);
+    Print.info('Check your internet connection and repository accessibility');
+    throw error;
   }
+}
+
+/**
+ * Filtra el registry para incluir SOLO componentes de categorías Visual y Service
+ * Excluye AppComponents y cualquier otra categoría
+ * @param {object} allComponents - Objeto con todos los componentes del registry
+ * @returns {object} - Objeto filtrado solo con Visual y Service
+ */
+filterOfficialComponents(allComponents) {
+  const filtered = {};
+  let excludedCount = 0;
+  
+  Object.entries(allComponents).forEach(([name, category]) => {
+    // Solo incluir componentes de categoría Visual o Service
+    if (category === 'Visual' || category === 'Service') {
+      filtered[name] = category;
+    } else {
+      excludedCount++;
+    }
+  });
+  
+  if (excludedCount > 0) {
+    Print.info(`Filtered out ${excludedCount} non-Visual/Service components from registry`);
+  }
+  
+  return filtered;
+}
 
   async getLocalComponents() {
     try {
@@ -287,19 +317,39 @@ class ComponentRegistry {
   }
 
   async installComponent(componentName, category, force = false) {
-    const availableComponents = this.getAvailableComponents(category);
+     const availableComponents = this.getAvailableComponents(category);
 
-    if (!availableComponents[componentName]) {
-      throw new Error(`Componente '${componentName}' no encontrado en la categoría '${category}' del repositorio oficial`);
+  if (!availableComponents[componentName]) {
+    throw new Error(`Componente '${componentName}' no encontrado en la categoría '${category}' del repositorio oficial`);
+  }
+
+  // ✅ MEJORADO: Detectar si validations tiene acceso a la configuración
+  let categoryPath;
+  const hasValidConfig = validations.config && 
+                         validations.config.paths && 
+                         validations.config.paths.components &&
+                         validations.config.paths.components[category];
+  
+  if (hasValidConfig) {
+    // Usar validations cuando la config está disponible
+    categoryPath = validations.getCategoryPath(category);
+  } else {
+    // Usar rutas por defecto cuando no hay config (durante init o error)
+    if (category === 'Visual') {
+      categoryPath = '/Components/Visual';
+    } else if (category === 'Service') {
+      categoryPath = '/Components/Service';
+    } else {
+      throw new Error(`Unknown category: ${category}`);
     }
+  }
+  
+  const isProduction = this.config?.production?.enabled === true;
+  const folderSuffix = isProduction ? 'dist' : 'src';
+  
+  const targetPath = path.join(__dirname, `../../../../${folderSuffix}`, categoryPath, componentName);
 
-    const categoryPath = validations.getCategoryPath(category);
-    
-    // ✅ CORREGIDO: Usar 4 niveles para compatibilidad con node_modules
-    const isProduction = this.config?.production?.enabled === true;
-    const folderSuffix = isProduction ? 'dist' : 'src';
-    
-    const targetPath = path.join(__dirname, `../../../../${folderSuffix}`, categoryPath, componentName);
+
 
     // Check if component already exists
     if (await fs.pathExists(targetPath) && !force) {
