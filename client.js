@@ -40,7 +40,7 @@ async function runWithVersionCheck(commandFunction, ...args) {
     
     // Then check for updates (non-blocking)
     setTimeout(() => {
-      versionChecker.checkForUpdates(true);
+      versionChecker.checkForUpdates(false);
     }, 100);
     
     return result;
