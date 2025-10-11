@@ -12,10 +12,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const loadConfig = () => {
     try {
         const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+        if (!fs.existsSync(configPath)) {
+            Print.error('sliceConfig.json not found');
+            Print.info('Run "slice init" to initialize your project');
+            return null;
+        }
         const rawData = fs.readFileSync(configPath, 'utf-8');
         return JSON.parse(rawData);
     } catch (error) {
-        console.error(`Error cargando configuración: ${error.message}`);
+        Print.error(`Failed to load configuration: ${error.message}`);
+        Print.info('Check that sliceConfig.json is valid JSON');
         return null;
     }
 };
@@ -27,10 +33,14 @@ const loadConfig = () => {
  */
 const listComponents = (folderPath) => {
     try {
-        const result = fs.readdirSync(folderPath)
+        if (!fs.existsSync(folderPath)) {
+            Print.warning(`Component directory not found: ${folderPath}`);
+            return [];
+        }
+        const result = fs.readdirSync(folderPath);
         return result;
     } catch (error) {
-        console.error(`Error leyendo carpeta ${folderPath}: ${error.message}`);
+        Print.error(`Failed to read directory ${folderPath}: ${error.message}`);
         return [];
     }
 };
@@ -66,16 +76,34 @@ const getComponents = () => {
 };
 
 function listComponentsReal(){
-    // Obtener componentes dinámicamente
-const components = getComponents();
+    try {
+        // Obtener componentes dinámicamente
+        const components = getComponents();
 
-// Ruta donde se generará components.js
-const outputPath = path.join(__dirname, '../../../../src/Components/components.js');
+        if (Object.keys(components).length === 0) {
+            Print.warning('No components found in your project');
+            Print.info('Create your first component with "slice component create"');
+            return;
+        }
 
-// Generar archivo components.js con los componentes detectados
-fs.writeFileSync(outputPath, `const components = ${JSON.stringify(components, null, 2)}; export default components;`);
+        // Ruta donde se generará components.js
+        const outputPath = path.join(__dirname, '../../../../src/Components/components.js');
+        
+        // Asegurar que el directorio existe
+        const outputDir = path.dirname(outputPath);
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+            Print.info('Created Components directory');
+        }
 
-Print.success('Lista de componentes actualizada dinámicamente');
+        // Generar archivo components.js con los componentes detectados
+        fs.writeFileSync(outputPath, `const components = ${JSON.stringify(components, null, 2)};\n\nexport default components;\n`);
+
+        Print.success(`Component list updated successfully (${Object.keys(components).length} component${Object.keys(components).length !== 1 ? 's' : ''} found)`);
+    } catch (error) {
+        Print.error(`Failed to update component list: ${error.message}`);
+        Print.info('Make sure your project structure is correct');
+    }
 }
 
 export default listComponentsReal;

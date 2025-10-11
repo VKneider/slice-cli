@@ -21,13 +21,16 @@ class Validations {
         try {
             const configPath = path.join(__dirname, '../../../src/sliceConfig.json');
             if (!fs.existsSync(configPath)) {
-                return null; // Evitar error si no existe
+                console.error('\x1b[31m', '❌ Error: sliceConfig.json not found', '\x1b[0m');
+                console.log('\x1b[36m', 'ℹ️  Info: Run "slice init" to initialize your project', '\x1b[0m');
+                return null;
               }
             const rawData = fs.readFileSync(configPath, 'utf-8');
             
             return JSON.parse(rawData);
         } catch (error) {
-            console.error(`Error cargando configuración: ${error.message}`);
+            console.error('\x1b[31m', `❌ Error loading configuration: ${error.message}`, '\x1b[0m');
+            console.log('\x1b[36m', 'ℹ️  Info: Check that sliceConfig.json is valid JSON', '\x1b[0m');
             return null;
         }
     }
@@ -59,7 +62,8 @@ class Validations {
             const componentFilePath = path.join(__dirname, '../../../src/Components/components.js');
     
             if (!fs.existsSync(componentFilePath)) {
-                console.error('❌ El archivo components.js no existe en la ruta esperada.');
+                console.error('\x1b[31m', '❌ Error: components.js not found in expected path', '\x1b[0m');
+                console.log('\x1b[36m', 'ℹ️  Info: Run "slice component list" to generate components.js', '\x1b[0m');
                 return false;
             }
     
@@ -69,7 +73,8 @@ class Validations {
             return components.hasOwnProperty(componentName);
 
         } catch (error) {
-            console.error('❌ Error al verificar el componente:', error);
+            console.error('\x1b[31m', `❌ Error checking component existence: ${error.message}`, '\x1b[0m');
+            console.log('\x1b[36m', 'ℹ️  Info: The components.js file may be corrupted', '\x1b[0m');
             return false;
         }
     }

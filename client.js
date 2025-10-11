@@ -115,8 +115,9 @@ componentCommand
     await runWithVersionCheck(async () => {
       const categories = getCategories();
       if (categories.length === 0) {
-        Print.error("No categories available. Check your configuration");
-        Print.info("Run 'slice init' to initialize your project");
+        Print.error("No categories found in your project configuration");
+        Print.info("Run 'slice init' to initialize your project first");
+        Print.commandExample("Initialize project", "slice init");
         return;
       }
 
@@ -125,7 +126,13 @@ componentCommand
           type: "input",
           name: "componentName",
           message: "Enter the component name:",
-          validate: (input) => (input ? true : "Component name cannot be empty"),
+          validate: (input) => {
+            if (!input) return "Component name cannot be empty";
+            if (!/^[a-zA-Z][a-zA-Z0-9]*$/.test(input)) {
+              return "Component name must start with a letter and contain only alphanumeric characters";
+            }
+            return true;
+          },
         },
         {
           type: "list",
@@ -134,25 +141,10 @@ componentCommand
           choices: categories,
         }
       ]);
-
-      if (validations.getCategoryType(answers.category) === 'Visual') {
-        const properties = await inquirer.prompt([
-          {
-            type: "input",
-            name: "properties",
-            message: "Enter the properties (comma separated):",
-            default: ""
-          },
-        ]);
-        answers.properties = properties.properties 
-          ? properties.properties.split(",").map((prop) => prop.trim()).filter(Boolean)
-          : [];
-      } else {
-        answers.properties = [];
-      }
       
-      if (createComponent(answers.componentName, answers.category, answers.properties)) {
-        Print.success(`Component ${answers.componentName} created successfully`);
+      const result = createComponent(answers.componentName, answers.category);
+      if (result) {
+        Print.success(`Component '${answers.componentName}' created successfully in category '${answers.category}'`);
         Print.info("Listing updated components:");
         listComponents();
       }
@@ -186,7 +178,68 @@ componentCommand
       }
 
       try {
-        await deleteComponent();
+        // Paso 1: Seleccionar categoría
+        const categoryAnswer = await inquirer.prompt([
+          {
+            type: "list",
+            name: "category",
+            message: "Select the component category:",
+            choices: categories,
+          }
+        ]);
+
+        // Paso 2: Listar componentes de esa categoría
+        const config = loadConfig();
+        if (!config) {
+          Print.error("Could not load configuration");
+          return;
+        }
+
+        const categoryPath = config.paths.components[categoryAnswer.category].path;
+        const fullPath = path.join(__dirname, "../../src", categoryPath);
+        
+        if (!fs.existsSync(fullPath)) {
+          Print.error(`Category path does not exist: ${categoryPath}`);
+          return;
+        }
+
+        const components = fs.readdirSync(fullPath).filter(item => {
+          const itemPath = path.join(fullPath, item);
+          return fs.statSync(itemPath).isDirectory();
+        });
+
+        if (components.length === 0) {
+          Print.info(`No components found in category '${categoryAnswer.category}'`);
+          return;
+        }
+
+        // Paso 3: Seleccionar componente a eliminar
+        const componentAnswer = await inquirer.prompt([
+          {
+            type: "list",
+            name: "componentName",
+            message: "Select the component to delete:",
+            choices: components,
+          },
+          {
+            type: "confirm",
+            name: "confirm",
+            message: (answers) => `Are you sure you want to delete '${answers.componentName}'?`,
+            default: false,
+          }
+        ]);
+
+        if (!componentAnswer.confirm) {
+          Print.info("Delete operation cancelled");
+          return;
+        }
+
+        // Paso 4: Eliminar el componente
+        if (deleteComponent(componentAnswer.componentName, categoryAnswer.category)) {
+          Print.success(`Component ${componentAnswer.componentName} deleted successfully`);
+          Print.info("Listing updated components:");
+          listComponents();
+        }
       } catch (error) {
         Print.error(`Deleting component: ${error.message}`);
       }
