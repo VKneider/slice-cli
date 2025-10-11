@@ -24,7 +24,6 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         
         // Main project commands - SOLO DEVELOPMENT
         projectPackageJson.scripts['slice:init'] = 'node node_modules/slicejs-cli/client.js init';
-        projectPackageJson.scripts['slice:dev'] = 'node api/index.js --development';
         projectPackageJson.scripts['slice:start'] = 'node api/index.js --development';
         projectPackageJson.scripts['slice:version'] = 'node node_modules/slicejs-cli/client.js version';
         projectPackageJson.scripts['slice:update'] = 'node node_modules/slicejs-cli/client.js update';
@@ -39,14 +38,9 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         projectPackageJson.scripts['slice:browse'] = 'node node_modules/slicejs-cli/client.js browse';
         projectPackageJson.scripts['slice:sync'] = 'node node_modules/slicejs-cli/client.js sync';
         
-        // Detailed registry commands (for advanced users)
-        projectPackageJson.scripts['slice:registry-get'] = 'node node_modules/slicejs-cli/client.js registry get';
-        projectPackageJson.scripts['slice:registry-list'] = 'node node_modules/slicejs-cli/client.js registry list';
-        projectPackageJson.scripts['slice:registry-sync'] = 'node node_modules/slicejs-cli/client.js registry sync';
         
         // Legacy commands - SOLO DEVELOPMENT
         projectPackageJson.scripts['run'] = 'node api/index.js --development';
-        projectPackageJson.scripts['development'] = 'node api/index.js --development';
 
         // Module configuration
         projectPackageJson.type = 'module';
@@ -61,7 +55,6 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
         console.log('✅ SliceJS CLI commands added to package.json');
         console.log('\n🚀 Main workflow commands:');
         console.log('  npm run slice:init         - Initialize Slice.js project');
-        console.log('  npm run slice:dev          - Start development server (serves from /src)');
         console.log('  npm run slice:start        - Start development server (same as dev)');
         console.log('\n📦 Component management:');
         console.log('  npm run slice:get Button   - Get components from official repository');
@@ -91,7 +84,6 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                 scripts: {
                     // Main workflow commands - SOLO DEVELOPMENT
                     'slice:init': 'node node_modules/slicejs-cli/client.js init',
-                    'slice:dev': 'node api/index.js --development',
                     'slice:start': 'node api/index.js --development',
                     'slice:version': 'node node_modules/slicejs-cli/client.js version',
                     'slice:update': 'node node_modules/slicejs-cli/client.js update',
@@ -108,7 +100,6 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                     
                     // Legacy commands - SOLO DEVELOPMENT
                     'run': 'node api/index.js --development',
-                    'development': 'node api/index.js --development'
                 },
                 type: 'module',
                 engines: {
