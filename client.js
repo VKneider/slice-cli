@@ -7,6 +7,7 @@ import listComponents from "./commands/listComponents/listComponents.js";
 import deleteComponent from "./commands/deleteComponent/deleteComponent.js";
 import getComponent, { listComponents as listRemoteComponents, syncComponents } from "./commands/getComponent/getComponent.js";
 import startServer from "./commands/startServer/startServer.js";
+import runDiagnostics from "./commands/doctor/doctor.js";
 import versionChecker from "./commands/utils/versionChecker.js";
 import fs from "fs";
 import path from "path";
@@ -37,12 +38,12 @@ async function runWithVersionCheck(commandFunction, ...args) {
   try {
     // Run the command first
     const result = await commandFunction(...args);
-    
+
     // Then check for updates (non-blocking)
     setTimeout(() => {
       versionChecker.checkForUpdates(false);
     }, 100);
-    
+
     return result;
   } catch (error) {
     Print.error(`Command execution: ${error.message}`);
@@ -52,7 +53,7 @@ async function runWithVersionCheck(commandFunction, ...args) {
 
 const sliceClient = program;
 
-sliceClient.version("2.2.6").description("CLI for managing Slice.js framework components");
+sliceClient.version("2.5.0").description("CLI for managing Slice.js framework components");
 
 // INIT COMMAND
 sliceClient
@@ -79,11 +80,13 @@ sliceClient
   .command("dev")
   .description("Start development server")
   .option("-p, --port <port>", "Port for development server", 3000)
+  .option("-w, --watch", "Enable watch mode for file changes")
   .action(async (options) => {
     await runWithVersionCheck(async () => {
       await startServer({
         mode: 'development',
-        port: parseInt(options.port)
+        port: parseInt(options.port),
+        watch: options.watch
       });
     });
   });
@@ -93,12 +96,13 @@ sliceClient
   .command("start")
   .description("Start development server (alias for dev)")
   .option("-p, --port <port>", "Port for server", 3000)
+  .option("-w, --watch", "Enable watch mode for file changes")
   .action(async (options) => {
     await runWithVersionCheck(async () => {
-      Print.info("Starting development server...");
       await startServer({
         mode: 'development',
-        port: parseInt(options.port)
+        port: parseInt(options.port),
+        watch: options.watch
       });
     });
   });
@@ -141,7 +145,7 @@ componentCommand
           choices: categories,
         }
       ]);
-      
+
       const result = createComponent(answers.componentName, answers.category);
       if (result) {
         Print.success(`Component '${answers.componentName}' created successfully in category '${answers.category}'`);
@@ -197,7 +201,7 @@ componentCommand
 
         const categoryPath = config.paths.components[categoryAnswer.category].path;
         const fullPath = path.join(__dirname, "../../src", categoryPath);
-        
+
         if (!fs.existsSync(fullPath)) {
           Print.error(`Category path does not exist: ${categoryPath}`);
           return;
@@ -303,7 +307,7 @@ sliceClient
         Print.commandExample("Browse components", "slice browse");
         return;
       }
-      
+
       await getComponent(components, {
         force: options.force,
         service: options.service
@@ -339,10 +343,10 @@ sliceClient
   .description("Check for and show available updates for CLI and framework")
   .action(async () => {
     Print.info("Checking for updates...");
-    
+
     try {
       const updateInfo = await versionChecker.checkForUpdates(false);
-      
+
       if (updateInfo) {
         if (updateInfo.cli.status === 'current' && updateInfo.framework.status === 'current') {
           Print.success("All components are up to date!");
@@ -355,6 +359,17 @@ sliceClient
     } catch (error) {
       Print.error(`Checking updates: ${error.message}`);
     }
+  });
+
+// DOCTOR COMMAND - Diagnose project issues
+sliceClient
+  .command("doctor")
+  .alias("diagnose")
+  .description("Run diagnostics to check project health")
+  .action(async () => {
+    await runWithVersionCheck(async () => {
+      await runDiagnostics();
+    });
   });
 
 // Enhanced help
@@ -376,13 +391,14 @@ Common Usage Examples:
   slice browse                   - Browse all available components
   slice sync                     - Update local components to latest versions
   slice component create         - Create new local component
+  slice doctor                   - Run project diagnostics
 
 Command Categories:
   • init, dev, start             - Project lifecycle (development only)
   • get, browse, sync            - Quick registry shortcuts  
   • component <cmd>              - Local component management
   • registry <cmd>               - Official repository operations
-  • version, update              - Maintenance commands
+  • version, update, doctor      - Maintenance commands
 
 Development Workflow:
   • slice init    - Initialize project

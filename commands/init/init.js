@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import ora from 'ora';
 import Print from '../Print.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,40 +28,43 @@ export default async function initializeProject(projectType) {
         }
 
         // 1. COPIAR LA CARPETA API (mantener lógica original)
+        const apiSpinner = ora('Copying API structure...').start();
         try {
             if (!fs.existsSync(apiDir)) throw new Error(`No se encontró la carpeta api: ${apiDir}`);
             await fs.copy(apiDir, destinationApi, { recursive: true });
-            Print.success('Carpeta "api" copiada correctamente.');
+            apiSpinner.succeed('API structure created successfully');
         } catch (error) {
-            Print.error('Error copiando la carpeta "api":', error.message);
+            apiSpinner.fail('Error copying API structure');
+            Print.error(error.message);
             return;
         }
 
         // 2. CREAR ESTRUCTURA SRC BÁSICA (sin copiar componentes Visual)
+        const srcSpinner = ora('Creating src structure...').start();
         try {
             if (!fs.existsSync(srcDir)) throw new Error(`No se encontró la carpeta src: ${srcDir}`);
-            
+
             // Copiar solo los archivos base de src, excluyendo Components/Visual
             await fs.ensureDir(destinationSrc);
-            
+
             // Copiar archivos y carpetas de src excepto Components/Visual
             const srcItems = await fs.readdir(srcDir);
-            
+
             for (const item of srcItems) {
                 const srcItemPath = path.join(srcDir, item);
                 const destItemPath = path.join(destinationSrc, item);
                 const stat = await fs.stat(srcItemPath);
-                
+
                 if (stat.isDirectory()) {
                     if (item === 'Components') {
                         // Crear estructura de Components pero sin copiar Visual
                         await fs.ensureDir(destItemPath);
-                        
+
                         const componentItems = await fs.readdir(srcItemPath);
                         for (const componentItem of componentItems) {
                             const componentItemPath = path.join(srcItemPath, componentItem);
                             const destComponentItemPath = path.join(destItemPath, componentItem);
-                            
+
                             if (componentItem !== 'Visual') {
                                 // Copiar Service y otros tipos de components
                                 await fs.copy(componentItemPath, destComponentItemPath, { recursive: true });
@@ -78,50 +82,50 @@ export default async function initializeProject(projectType) {
                     await fs.copy(srcItemPath, destItemPath);
                 }
             }
-            
-            Print.success('Estructura "src" creada correctamente.');
+
+            srcSpinner.succeed('Source structure created successfully');
         } catch (error) {
-            Print.error('Error creando la estructura "src":', error.message);
+            srcSpinner.fail('Error creating source structure');
+            Print.error(error.message);
             return;
         }
 
         // 3. DESCARGAR TODOS LOS COMPONENTES VISUAL DESDE EL REPOSITORIO OFICIAL
+        const componentsSpinner = ora('Loading component registry...').start();
         try {
-            Print.info('Downloading all Visual components from official repository...');
-            
             const registry = new ComponentRegistry();
             await registry.loadRegistry();
-            
+
             // Obtener TODOS los componentes Visual disponibles
             const allVisualComponents = await getAllVisualComponents(registry);
-            
+
             if (allVisualComponents.length > 0) {
-                Print.info(`Installing ${allVisualComponents.length} Visual components...`);
-                
+                componentsSpinner.text = `Installing ${allVisualComponents.length} Visual components...`;
+
                 const results = await registry.installMultipleComponents(
-                    allVisualComponents, 
-                    'Visual', 
+                    allVisualComponents,
+                    'Visual',
                     true // force = true para instalación inicial
                 );
-                
+
                 const successful = results.filter(r => r.success).length;
                 const failed = results.filter(r => !r.success).length;
-                
-                if (successful > 0) {
-                    Print.success(`${successful} Visual components installed from official repository`);
-                }
-                
-                if (failed > 0) {
-                    Print.warning(`${failed} Visual components could not be installed`);
-                    Print.info('You can install them later using "slice get <component-name>"');
+
+                if (successful > 0 && failed === 0) {
+                    componentsSpinner.succeed(`All ${successful} Visual components installed successfully`);
+                } else if (successful > 0) {
+                    componentsSpinner.warn(`${successful} components installed, ${failed} failed`);
+                    Print.info('You can install failed components later using "slice get <component-name>"');
+                } else {
+                    componentsSpinner.fail('Failed to install Visual components');
                 }
             } else {
-                Print.warning('No Visual components found in registry');
+                componentsSpinner.warn('No Visual components found in registry');
                 Print.info('You can add components later using "slice get <component-name>"');
             }
-            
+
         } catch (error) {
-            Print.warning('Could not download Visual components from official repository');
+            componentsSpinner.fail('Could not download Visual components from official repository');
             Print.error(`Repository error: ${error.message}`);
             Print.info('Project initialized without Visual components');
             Print.info('You can add them later using "slice get <component-name>"');
@@ -133,7 +137,7 @@ export default async function initializeProject(projectType) {
         console.log('  slice browse          - View available components');
         console.log('  slice get Button      - Install specific components');
         console.log('  slice sync            - Update all components to latest versions');
-        
+
     } catch (error) {
         Print.error('Error inesperado al inicializar el proyecto:', error.message);
     }
@@ -147,8 +151,8 @@ export default async function initializeProject(projectType) {
 async function getAllVisualComponents(registry) {
     const availableComponents = registry.getAvailableComponents('Visual');
     const allVisualComponents = Object.keys(availableComponents);
-    
+
     Print.info(`Found ${allVisualComponents.length} Visual components in official repository`);
-    
+
     return allVisualComponents;
 }

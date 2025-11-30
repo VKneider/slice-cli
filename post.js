@@ -21,57 +21,63 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
 
         // Add custom commands to the project scripts
         projectPackageJson.scripts = projectPackageJson.scripts || {};
-        
-        // Main project commands - SOLO DEVELOPMENT
-        projectPackageJson.scripts['slice:init'] = 'node node_modules/slicejs-cli/client.js init';
-        projectPackageJson.scripts['slice:start'] = 'node api/index.js --development';
-        projectPackageJson.scripts['slice:version'] = 'node node_modules/slicejs-cli/client.js version';
-        projectPackageJson.scripts['slice:update'] = 'node node_modules/slicejs-cli/client.js update';
-        
-        // Local component commands
-        projectPackageJson.scripts['slice:create'] = 'node node_modules/slicejs-cli/client.js component create';
-        projectPackageJson.scripts['slice:list'] = 'node node_modules/slicejs-cli/client.js component list';
-        projectPackageJson.scripts['slice:delete'] = 'node node_modules/slicejs-cli/client.js component delete';
-      
+
+        // Main project commands - using 'slice' directly
+        projectPackageJson.scripts['dev'] = 'slice dev';
+        projectPackageJson.scripts['start'] = 'slice start';
+
+        // Component management
+        projectPackageJson.scripts['component:create'] = 'slice component create';
+        projectPackageJson.scripts['component:list'] = 'slice component list';
+        projectPackageJson.scripts['component:delete'] = 'slice component delete';
+
         // Main repository commands (most used shortcuts)
-        projectPackageJson.scripts['slice:get'] = 'node node_modules/slicejs-cli/client.js get';
-        projectPackageJson.scripts['slice:browse'] = 'node node_modules/slicejs-cli/client.js browse';
-        projectPackageJson.scripts['slice:sync'] = 'node node_modules/slicejs-cli/client.js sync';
-        
-        
-        // Legacy commands - SOLO DEVELOPMENT
-        projectPackageJson.scripts['run'] = 'node api/index.js --development';
+        projectPackageJson.scripts['get'] = 'slice get';
+        projectPackageJson.scripts['browse'] = 'slice browse';
+        projectPackageJson.scripts['sync'] = 'slice sync';
+
+        // Utility commands
+        projectPackageJson.scripts['slice:version'] = 'slice version';
+        projectPackageJson.scripts['slice:update'] = 'slice update';
+
+        // Legacy commands - mantener por compatibilidad temporal
+        projectPackageJson.scripts['slice:init'] = 'slice init';
+        projectPackageJson.scripts['slice:start'] = 'slice start';
+        projectPackageJson.scripts['slice:dev'] = 'slice dev';
+        projectPackageJson.scripts['slice:create'] = 'slice component create';
+        projectPackageJson.scripts['slice:list'] = 'slice component list';
+        projectPackageJson.scripts['slice:delete'] = 'slice component delete';
+        projectPackageJson.scripts['slice:get'] = 'slice get';
+        projectPackageJson.scripts['slice:browse'] = 'slice browse';
+        projectPackageJson.scripts['slice:sync'] = 'slice sync';
+        projectPackageJson.scripts['run'] = 'slice dev';
 
         // Module configuration
         projectPackageJson.type = 'module';
         projectPackageJson.engines = {
             "node": ">=20.0.0"
         };
-        
+
         // Write the new content to package.json
         return fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(projectPackageJson, null, 2), 'utf8');
     })
     .then(() => {
-        console.log('✅ SliceJS CLI commands added to package.json');
-        console.log('\n🚀 Main workflow commands:');
-        console.log('  npm run slice:init         - Initialize Slice.js project');
-        console.log('  npm run slice:start        - Start development server (same as dev)');
-        console.log('\n📦 Component management:');
-        console.log('  npm run slice:get Button   - Get components from official repository');
-        console.log('  npm run slice:browse       - View all available components');
-        console.log('  npm run slice:sync         - Update local components to latest versions');
-        console.log('\n⚙️  Local component management:');
-        console.log('  npm run slice:create       - Create local component');
-        console.log('  npm run slice:list         - List local components');
-        console.log('  npm run slice:delete       - Delete local component');
-        console.log('\n🔧 Other utilities:');
-        console.log('  npm run slice:version      - View version information');
-        console.log('  npm run slice:update       - Check for available updates');
-        console.log('\n🎯 Simplified workflow:');
-        console.log('  1. npm run slice:init      - Initialize project');
-        console.log('  2. npm run slice:dev       - Start development server');
-        console.log('  3. Develop and iterate     - No build step needed!');
-        console.log('\n💡 Development-focused: All commands serve from /src for instant changes');
+        console.log('✅ SliceJS CLI configured successfully');
+        console.log('\n🎯 New recommended commands:');
+        console.log('  slice dev              - Start development server');
+        console.log('  slice get Button       - Get components from repository');
+        console.log('  slice browse           - View available components');
+        console.log('  slice component create - Create local component');
+        console.log('\n📦 Available npm scripts:');
+        console.log('  npm run dev            - Start development server');
+        console.log('  npm run get            - Install components');
+        console.log('  npm run browse         - Browse components');
+        console.log('\n⚠️  Legacy commands (deprecated but still work):');
+        console.log('  npm run slice:dev      - Use "slice dev" instead');
+        console.log('  npm run slice:get      - Use "slice get" instead');
+        console.log('\n💡 You can also use npx:');
+        console.log('  npx slicejs-cli dev');
+        console.log('\n📘 Documentation: https://slice-js-docs.vercel.app/');
     })
     .catch(err => {
         if (err.code === 'ENOENT') {
@@ -82,31 +88,42 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
                 description: 'Slice.js project',
                 main: 'api/index.js',
                 scripts: {
-                    // Main workflow commands - SOLO DEVELOPMENT
-                    'slice:init': 'node node_modules/slicejs-cli/client.js init',
-                    'slice:start': 'node api/index.js --development',
-                    'slice:version': 'node node_modules/slicejs-cli/client.js version',
-                    'slice:update': 'node node_modules/slicejs-cli/client.js update',
-                    
-                    // Local component commands
-                    'slice:create': 'node node_modules/slicejs-cli/client.js component create',
-                    'slice:list': 'node node_modules/slicejs-cli/client.js component list',
-                    'slice:delete': 'node node_modules/slicejs-cli/client.js component delete',
-                    
+                    // Main workflow commands
+                    'dev': 'slice dev',
+                    'start': 'slice start',
+
+                    // Component management
+                    'component:create': 'slice component create',
+                    'component:list': 'slice component list',
+                    'component:delete': 'slice component delete',
+
                     // Repository commands
-                    'slice:get': 'node node_modules/slicejs-cli/client.js get',
-                    'slice:browse': 'node node_modules/slicejs-cli/client.js browse',
-                    'slice:sync': 'node node_modules/slicejs-cli/client.js sync',
-                    
-                    // Legacy commands - SOLO DEVELOPMENT
-                    'run': 'node api/index.js --development',
+                    'get': 'slice get',
+                    'browse': 'slice browse',
+                    'sync': 'slice sync',
+
+                    // Utility
+                    'slice:version': 'slice version',
+                    'slice:update': 'slice update',
+
+                    // Legacy commands (for compatibility)
+                    'slice:init': 'slice init',
+                    'slice:start': 'slice start',
+                    'slice:dev': 'slice dev',
+                    'slice:create': 'slice component create',
+                    'slice:list': 'slice component list',
+                    'slice:delete': 'slice component delete',
+                    'slice:get': 'slice get',
+                    'slice:browse': 'slice browse',
+                    'slice:sync': 'slice sync',
+                    'run': 'slice dev'
                 },
                 type: 'module',
                 engines: {
                     "node": ">=20.0.0"
                 }
             };
-            
+
             return fs.promises.writeFile(projectPackageJsonPath, JSON.stringify(defaultPackageJson, null, 2), 'utf8');
         } else {
             throw err;
@@ -115,13 +132,13 @@ fs.promises.access(projectPackageJsonPath, fs.constants.F_OK)
     .then(() => {
         console.log('✅ SliceJS CLI commands configured successfully');
         console.log('\n🎯 Simplified development workflow:');
-        console.log('  npm run slice:dev    → node api/index.js --development (serves /src)');
-        console.log('  npm run slice:start  → node api/index.js --development (same as dev)');
+        console.log('  slice dev        → Start development server');
+        console.log('  slice get Button → Install components');
+        console.log('  slice browse     → View available components');
         console.log('\n🔧 Benefits:');
-        console.log('  • Simple development-only workflow');
-        console.log('  • Instant changes without build steps');
-        console.log('  • Always serves from /src directory');
-        console.log('  • Interactive menu always available');
+        console.log('  • Simple and direct commands');
+        console.log('  • Can be used globally or with npx');
+        console.log('  • Legacy npm scripts still work for compatibility');
     })
     .catch(err => {
         console.error('❌ Error setting up package.json:', err.message);
