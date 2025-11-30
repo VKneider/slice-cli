@@ -110,8 +110,11 @@ slice registry sync       → slice sync
 slice version
 slice -v
 
-# Check for available updates
-slice update
+# Update CLI and Framework
+slice update              # Check and prompt for updates
+slice update --yes        # Update all automatically
+slice update --cli        # Update only CLI
+slice update --framework  # Update only Framework
 
 # Show help
 slice --help

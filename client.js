@@ -9,6 +9,7 @@ import getComponent, { listComponents as listRemoteComponents, syncComponents } 
 import startServer from "./commands/startServer/startServer.js";
 import runDiagnostics from "./commands/doctor/doctor.js";
 import versionChecker from "./commands/utils/versionChecker.js";
+import updateManager from "./commands/utils/updateManager.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -340,25 +341,12 @@ sliceClient
 sliceClient
   .command("update")
   .alias("upgrade")
-  .description("Check for and show available updates for CLI and framework")
-  .action(async () => {
-    Print.info("Checking for updates...");
-
-    try {
-      const updateInfo = await versionChecker.checkForUpdates(false);
-
-      if (updateInfo) {
-        if (updateInfo.cli.status === 'current' && updateInfo.framework.status === 'current') {
-          Print.success("All components are up to date!");
-        } else {
-          Print.info("Updates available - see details above");
-        }
-      } else {
-        Print.error("Could not check for updates. Please check your internet connection");
-      }
-    } catch (error) {
-      Print.error(`Checking updates: ${error.message}`);
-    }
+  .description("Update CLI and framework to latest versions")
+  .option("-y, --yes", "Skip confirmation and update all packages automatically")
+  .option("--cli", "Update only the Slice.js CLI")
+  .option("-f, --framework", "Update only the Slice.js Framework")
+  .action(async (options) => {
+    await updateManager.checkAndPromptUpdates(options);
   });
 
 // DOCTOR COMMAND - Diagnose project issues
