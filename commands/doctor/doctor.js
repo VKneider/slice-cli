@@ -34,8 +34,9 @@ async function checkNodeVersion() {
  * Verifica la estructura de directorios
  */
 async function checkDirectoryStructure() {
-    const srcPath = path.join(process.cwd(), 'src');
-    const apiPath = path.join(process.cwd(), 'api');
+    const projectRoot = path.join(__dirname, '../../../../');
+    const srcPath = path.join(projectRoot, 'src');
+    const apiPath = path.join(projectRoot, 'api');
 
     const srcExists = await fs.pathExists(srcPath);
     const apiExists = await fs.pathExists(apiPath);
@@ -62,7 +63,7 @@ async function checkDirectoryStructure() {
  * Verifica sliceConfig.json
  */
 async function checkConfig() {
-    const configPath = path.join(process.cwd(), 'src', 'sliceConfig.json');
+    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
 
     if (!await fs.pathExists(configPath)) {
         return {
@@ -100,7 +101,7 @@ async function checkConfig() {
  * Verifica disponibilidad del puerto
  */
 async function checkPort() {
-    const configPath = path.join(process.cwd(), 'src', 'sliceConfig.json');
+    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
     let port = 3000;
 
     try {
@@ -144,7 +145,7 @@ async function checkPort() {
  * Verifica dependencias en package.json
  */
 async function checkDependencies() {
-    const packagePath = path.join(process.cwd(), 'package.json');
+    const packagePath = path.join(__dirname, '../../../../package.json');
 
     if (!await fs.pathExists(packagePath)) {
         return {
@@ -188,7 +189,8 @@ async function checkDependencies() {
  * Verifica integridad de componentes
  */
 async function checkComponents() {
-    const configPath = path.join(process.cwd(), 'src', 'sliceConfig.json');
+    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+    const projectRoot = path.join(__dirname, '../../../../');
 
     if (!await fs.pathExists(configPath)) {
         return {
@@ -206,7 +208,7 @@ async function checkComponents() {
         let componentIssues = 0;
 
         for (const [category, { path: compPath }] of Object.entries(componentPaths)) {
-            const fullPath = path.join(process.cwd(), 'src', compPath);
+            const fullPath = path.join(projectRoot, 'src', compPath);
 
             if (await fs.pathExists(fullPath)) {
                 const items = await fs.readdir(fullPath);
