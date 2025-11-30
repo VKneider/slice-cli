@@ -54,7 +54,7 @@ async function runWithVersionCheck(commandFunction, ...args) {
 
 const sliceClient = program;
 
-sliceClient.version("2.5.0").description("CLI for managing Slice.js framework components");
+sliceClient.version("2.6.0").description("CLI for managing Slice.js framework components");
 
 // INIT COMMAND
 sliceClient
@@ -337,6 +337,17 @@ sliceClient
     });
   });
 
+// LIST COMMAND - Quick shortcut for listing local components
+sliceClient
+  .command("list")
+  .description("Quick list all local components (alias for component list)")
+  .action(async () => {
+    await runWithVersionCheck(() => {
+      listComponents();
+      return Promise.resolve();
+    });
+  });
+
 // UPDATE COMMAND
 sliceClient
   .command("update")
@@ -379,11 +390,12 @@ Common Usage Examples:
   slice browse                   - Browse all available components
   slice sync                     - Update local components to latest versions
   slice component create         - Create new local component
+  slice list                     - List all local components
   slice doctor                   - Run project diagnostics
 
 Command Categories:
   • init, dev, start             - Project lifecycle (development only)
-  • get, browse, sync            - Quick registry shortcuts  
+  • get, browse, sync, list      - Quick shortcuts  
   • component <cmd>              - Local component management
   • registry <cmd>               - Official repository operations
   • version, update, doctor      - Maintenance commands
