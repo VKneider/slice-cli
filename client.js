@@ -416,11 +416,11 @@ More info: https://slice-js-docs.vercel.app/
 
 // Default action with better messaging
 if (!process.argv.slice(2).length) {
-  program.outputHelp();
   Print.newLine();
   Print.info("Start with: slice init");
   Print.commandExample("Development", "slice dev");
   Print.commandExample("View available components", "slice browse");
+  Print.info("Use 'slice --help' for full help");
 }
 
 // Error handling for unknown commands
