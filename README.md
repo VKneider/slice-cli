@@ -1,16 +1,29 @@
-# Slice.js CLI
+<div align="center">
 
-Command-line interface for developing web applications with the Slice.js framework.
+# Slice.js CLI
+<img src="./assets/Slice.js-logo.png" alt="Slice.js logo" width="200" />
+<br/>
+
+<div style="display: flex; justify-content: center; align-items: center; gap: 10px; align-content: center;">
+<a href="https://www.npmjs.com/package/slicejs-cli"><img src="https://img.shields.io/npm/v/slicejs-cli.svg?label=CLI" alt="npm version" /></a>
+<img src="https://img.shields.io/badge/Node-%E2%89%A5%2020.0.0-339933?logo=node.js" alt="node requirement" />
+<a href="#license"><img src="https://img.shields.io/badge/License-ISC-blue.svg" alt="license" /></a>
+</div>
+
+
+<p>CLI for building web applications with the Slice.js framework</p>
+
+</div>
 
 ## Installation
 
-### Local Installation (Recommended)
+- Local (recommended):
 
 ```bash
 npm install slicejs-cli --save-dev
 ```
 
-### Global Installation
+- Global:
 
 ```bash
 npm install -g slicejs-cli
@@ -24,108 +37,104 @@ After installation, you can use the `slice` command directly:
 slice [command] [options]
 ```
 
-Or with npx (no installation required):
+Or with npx (without global install):
 
 ```bash
 npx slicejs-cli [command]
 ```
 
-## Commands
+## Essential Commands
 
-### Project Initialization
+### Initialize a project
 
 ```bash
 slice init
 ```
 
-Initializes a new Slice.js project with the complete framework structure.
+Initializes a Slice.js project with the full structure (`src/` and `api/`), installs initial Visual components, and configures npm scripts.
 
-### Development Server
+### Development server
 
 ```bash
-# Start development server on default port (3000)
+# Default port (3000)
 slice dev
 
-# Start on custom port
+# Custom port
 slice dev -p 8080
 
-# Alternative command (same as dev)
+# Alias
 slice start
 slice start -p 8080
 ```
 
-### Component Management (Local)
+### Component management (local)
 
 ```bash
-# Create a new component (interactive)
+# Create a component (interactive)
 slice component create
 
-# List all local components
+# List local components
 slice component list
 
 # Delete a component (interactive)
 slice component delete
 ```
 
-**Shortcuts:**
+Shortcuts:
 ```bash
-slice component create → slice comp create
-slice component list   → slice comp ls
-slice component delete → slice comp remove
+slice comp create
+slice comp ls
+slice comp remove
 ```
 
-### Component Registry (Official Repository)
+### Official component registry
 
 ```bash
-# Install components from official repository
+# Install Visual components
 slice get Button Card Input
 
-# Install service component
+# Install a Service component
 slice get FetchManager --service
 
-# Force overwrite existing components
+# Force overwrite
 slice get Button --force
 
 # Browse available components
 slice browse
 
-# Update all local components to latest versions
+# Update all local components
 slice sync
-
-# Force update without confirmation
 slice sync --force
 ```
 
-**Shortcuts:**
+Shortcuts:
 ```bash
-slice registry get Button → slice get Button
-slice registry list       → slice browse
-slice registry sync       → slice sync
+slice get Button
+slice browse
+slice sync
 ```
 
 ### Utilities
 
 ```bash
-# Show version information
+# Version info
 slice version
 slice -v
 
-# Update CLI and Framework
-slice update              # Check and prompt for updates
-slice update --yes        # Update all automatically
-slice update --cli        # Update only CLI
-slice update --framework  # Update only Framework
+# Updates (CLI and Framework)
+slice update              # Check and prompt to update
+slice update --yes        # Update everything automatically
+slice update --cli        # CLI only
+slice update --framework  # Framework only
 
-# Show help
+# Help
 slice --help
 slice [command] --help
 ```
 
-## NPM Scripts
+## npm Scripts
 
-When you install `slicejs-cli`, the following scripts are automatically added to your project's `package.json`:
-
-### Recommended (New)
+`slice init` automatically configures the recommended scripts in your `package.json`:
 
 ```json
 {
@@ -147,18 +156,6 @@ Usage:
 npm run dev
 npm run get
 npm run browse
-```
-
-### Legacy (Still Supported)
-
-```json
-{
-  "scripts": {
-    "slice:dev": "slice dev",
-    "slice:start": "slice start",
-    "slice:get": "slice get"
-  }
-}
 ```
 
 ## Quick Start
@@ -215,11 +212,11 @@ slice sync
 
 ## Development Mode
 
-The development server (`slice dev` or `slice start`) provides:
+The development server (`slice dev` / `slice start`) provides:
 
-- ✅ Hot reload for instant changes
-- ✅ Serves files directly from `/src`
-- ✅ No build step required
+- ✅ Hot reload
+- ✅ Serves directly from `/src`
+- ✅ No build step
 - ✅ Port validation
 - ✅ Clear error messages
 
@@ -230,35 +227,46 @@ The development server (`slice dev` or `slice start`) provides:
 
 ## Configuration
 
-Project configuration is stored in `src/sliceConfig.json`, created automatically during `slice init`.
+Project configuration is stored in `src/sliceConfig.json` and is created automatically by `slice init`.
 
 ## Features
 
-- 🚀 Fast development server with hot reload
-- 📦 Component registry for sharing components
+- 🚀 Development server with hot reload
+- 📦 Official component registry
 - 🎨 Visual and Service component types
 - ✨ Interactive component creation
 - 🔄 Automatic component synchronization
 - 🛠️ Built-in validation and error handling
-- 📝 Clear, actionable error messages
+
+### Smart Updates
+
+- Detects whether the CLI in use is global or local
+- Shows an update plan (GLOBAL/PROJECT) before execution
+- Offers to include global CLI update interactively
+- Applies `uninstall` + `install @latest` to ensure latest versions
+
+### Cross-platform Paths
+
+- Centralized path helper avoids `../../..`
+- Windows/Linux/Mac compatibility using `import.meta.url` and `fileURLToPath`
 
 ## Troubleshooting
 
-### Port Already in Use
+### Port already in use
 
 ```bash
 # Use a different port
 slice dev -p 8080
 ```
 
-### Project Not Initialized
+### Project not initialized
 
 ```bash
 # Make sure to run init first
 slice init
 ```
 
-### Command Not Found
+### Command not found
 
 ```bash
 # Use npx if not installed globally
