@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import ora from 'ora';
 import Print from '../Print.js';
+import { getProjectRoot, getApiPath, getSrcPath } from '../utils/PathHelper.js';
+import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -11,12 +13,39 @@ import { ComponentRegistry } from '../getComponent/getComponent.js';
 
 export default async function initializeProject(projectType) {
     try {
-        // Directorio de origen para API (mantener copia local)
-        let sliceBaseDir = path.join(__dirname, '../../../slicejs-web-framework');
-        let apiDir = path.join(sliceBaseDir, 'api');
-        let srcDir = path.join(sliceBaseDir, 'src');
-        let destinationApi = path.join(__dirname, '../../../../api');
-        let destinationSrc = path.join(__dirname, '../../../../src');
+        const projectRoot = getProjectRoot(import.meta.url);
+        const destinationApi = getApiPath(import.meta.url);
+        const destinationSrc = getSrcPath(import.meta.url);
+
+        const fwSpinner = ora('Ensuring latest Slice framework...').start();
+        let sliceBaseDir;
+        try {
+            const latest = execSync('npm view slicejs-web-framework version', { cwd: projectRoot }).toString().trim();
+            const installedPkgPath = path.join(projectRoot, 'node_modules', 'slicejs-web-framework', 'package.json');
+            let installed = null;
+            if (await fs.pathExists(installedPkgPath)) {
+                const pkg = await fs.readJson(installedPkgPath);
+                installed = pkg.version;
+            }
+            if (installed !== latest) {
+                execSync(`npm install slicejs-web-framework@${latest} --save`, { cwd: projectRoot, stdio: 'inherit' });
+            }
+            sliceBaseDir = path.join(projectRoot, 'node_modules', 'slicejs-web-framework');
+            fwSpinner.succeed(`slicejs-web-framework@${latest} ready`);
+        } catch (err) {
+            const fallback = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../slicejs-web-framework');
+            if (await fs.pathExists(fallback)) {
+                sliceBaseDir = fallback;
+                fwSpinner.warn('Using local slicejs-web-framework fallback');
+            } else {
+                fwSpinner.fail('Failed to ensure latest slicejs-web-framework');
+                Print.error(err.message);
+                return;
+            }
+        }
+
+        const apiDir = path.join(sliceBaseDir, 'api');
+        const srcDir = path.join(sliceBaseDir, 'src');
 
         try {
             // Verificar si los directorios de destino ya existen
@@ -129,6 +158,73 @@ export default async function initializeProject(projectType) {
             Print.error(`Repository error: ${error.message}`);
             Print.info('Project initialized without Visual components');
             Print.info('You can add them later using "slice get <component-name>"');
+        }
+
+        // 4. CONFIGURAR SCRIPTS EN package.json DEL PROYECTO
+        const pkgSpinner = ora('Configuring npm scripts...').start();
+        try {
+            const projectRoot = getProjectRoot(import.meta.url);
+            const pkgPath = path.join(projectRoot, 'package.json');
+
+            let pkg;
+            if (await fs.pathExists(pkgPath)) {
+                pkg = await fs.readJson(pkgPath);
+            } else {
+                pkg = {
+                    name: path.basename(projectRoot),
+                    version: '1.0.0',
+                    description: 'Slice.js project',
+                    main: 'api/index.js',
+                    scripts: {}
+                };
+            }
+
+            pkg.scripts = pkg.scripts || {};
+
+            // Comandos principales
+            pkg.scripts['dev'] = 'slice dev';
+            pkg.scripts['start'] = 'slice start';
+
+            // Gestión de componentes
+            pkg.scripts['component:create'] = 'slice component create';
+            pkg.scripts['component:list'] = 'slice component list';
+            pkg.scripts['component:delete'] = 'slice component delete';
+
+            // Atajos de repositorio
+            pkg.scripts['get'] = 'slice get';
+            pkg.scripts['browse'] = 'slice browse';
+            pkg.scripts['sync'] = 'slice sync';
+
+            // Utilidades
+            pkg.scripts['slice:version'] = 'slice version';
+            pkg.scripts['slice:update'] = 'slice update';
+
+            // Legacy (compatibilidad)
+            pkg.scripts['slice:init'] = 'slice init';
+            pkg.scripts['slice:start'] = 'slice start';
+            pkg.scripts['slice:dev'] = 'slice dev';
+            pkg.scripts['slice:create'] = 'slice component create';
+            pkg.scripts['slice:list'] = 'slice component list';
+            pkg.scripts['slice:delete'] = 'slice component delete';
+            pkg.scripts['slice:get'] = 'slice get';
+            pkg.scripts['slice:browse'] = 'slice browse';
+            pkg.scripts['slice:sync'] = 'slice sync';
+            pkg.scripts['run'] = 'slice dev';
+
+            // Configuración de módulo
+            pkg.type = pkg.type || 'module';
+            pkg.engines = pkg.engines || { node: '>=20.0.0' };
+
+            await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2), 'utf8');
+            pkgSpinner.succeed('npm scripts configured successfully');
+
+            console.log('\n🎯 New recommended commands:');
+            console.log('  npm run dev            - Start development server');
+            console.log('  npm run get            - Install components');
+            console.log('  npm run browse         - Browse components');
+        } catch (error) {
+            pkgSpinner.fail('Failed to configure npm scripts');
+            Print.error(error.message);
         }
 
         Print.success('Proyecto inicializado correctamente.');

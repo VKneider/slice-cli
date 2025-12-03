@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import Print from '../Print.js';
+import { getSrcPath, getComponentsJsPath, getConfigPath } from '../utils/PathHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -13,7 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  */
 const loadConfig = () => {
     try {
-        const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+        const configPath = getConfigPath(import.meta.url);
         if (!fs.existsSync(configPath)) {
             Print.error('sliceConfig.json not found');
             Print.info('Run "slice init" to initialize your project');
@@ -72,7 +73,8 @@ const getComponents = () => {
     let allComponents = new Map();
 
     Object.entries(componentPaths).forEach(([category, { path: folderPath }]) => {
-        const fullPath = path.join(__dirname, `../../../../${folderSuffix}`, folderPath);
+        const cleanFolderPath = folderPath ? folderPath.replace(/^[/\\]+/, '') : '';
+        const fullPath = getSrcPath(import.meta.url, cleanFolderPath);
         const files = listComponents(fullPath);
 
         files.forEach(file => {
@@ -150,7 +152,7 @@ function listComponentsReal() {
         Print.info(`Total: ${Object.keys(components).length} component${Object.keys(components).length !== 1 ? 's' : ''} found`);
 
         // Ruta donde se generará components.js
-        const outputPath = path.join(__dirname, '../../../../src/Components/components.js');
+        const outputPath = getComponentsJsPath(import.meta.url);
 
         // Asegurar que el directorio existe
         const outputDir = path.dirname(outputPath);

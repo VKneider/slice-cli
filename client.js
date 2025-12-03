@@ -8,11 +8,12 @@ import deleteComponent from "./commands/deleteComponent/deleteComponent.js";
 import getComponent, { listComponents as listRemoteComponents, syncComponents } from "./commands/getComponent/getComponent.js";
 import startServer from "./commands/startServer/startServer.js";
 import runDiagnostics from "./commands/doctor/doctor.js";
-import versionChecker from "./commands/utils/versionChecker.js";
+import versionChecker from "./commands/utils/VersionChecker.js";
 import updateManager from "./commands/utils/updateManager.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { getConfigPath } from "./commands/utils/PathHelper.js";
 import validations from "./commands/Validations.js";
 import Print from "./commands/Print.js";
 
@@ -20,7 +21,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const loadConfig = () => {
   try {
-    const configPath = path.join(__dirname, "../../src/sliceConfig.json");
+    const configPath = getConfigPath(import.meta.url);
     const rawData = fs.readFileSync(configPath, "utf-8");
     return JSON.parse(rawData);
   } catch (error) {
@@ -37,10 +38,13 @@ const getCategories = () => {
 // Function to run version check for all commands
 async function runWithVersionCheck(commandFunction, ...args) {
   try {
-    // Run the command first
+    const updateInfo = await updateManager.checkForUpdates();
+    if (updateInfo && updateInfo.hasUpdates) {
+      await updateManager.checkAndPromptUpdates({});
+    }
+
     const result = await commandFunction(...args);
 
-    // Then check for updates (non-blocking)
     setTimeout(() => {
       versionChecker.checkForUpdates(false);
     }, 100);
@@ -54,7 +58,7 @@ async function runWithVersionCheck(commandFunction, ...args) {
 
 const sliceClient = program;
 
-sliceClient.version("2.6.0").description("CLI for managing Slice.js framework components");
+sliceClient.version("2.6.1").description("CLI for managing Slice.js framework components");
 
 // INIT COMMAND
 sliceClient

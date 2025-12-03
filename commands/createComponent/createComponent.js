@@ -5,7 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import Validations from '../Validations.js';
 import Print from '../Print.js';
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+import { getSrcPath } from '../utils/PathHelper.js';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function createComponent(componentName, category) {
     // Validación: Nombre de componente requerido
@@ -62,10 +63,8 @@ function createComponent(componentName, category) {
     }
 
     const categoryPath = Validations.getCategoryPath(category);
-
-    // Determinar la ruta del directorio del componente
-    let componentDir = path.join(__dirname, '../../../../src/', categoryPath, className);
-    componentDir = componentDir.slice(1);
+    const categoryPathClean = categoryPath ? categoryPath.replace(/^[/\\]+/, '') : '';
+    const componentDir = getSrcPath(import.meta.url, categoryPathClean, className);
     
     try {
         // Crear directorio del componente

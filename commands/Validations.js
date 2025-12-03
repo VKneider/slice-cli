@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getConfigPath, getComponentsJsPath } from './utils/PathHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,7 +33,7 @@ class Validations {
 
     loadConfig() {
         try {
-            const configPath = path.join(__dirname, '../../../src/sliceConfig.json');
+            const configPath = getConfigPath(import.meta.url);
             if (!fs.existsSync(configPath)) {
                 // Return null silently - let commands handle missing config if needed
                 return null;
@@ -76,7 +77,7 @@ class Validations {
 
     componentExists(componentName) {
         try {
-            const componentFilePath = path.join(__dirname, '../../../src/Components/components.js');
+            const componentFilePath = getComponentsJsPath(import.meta.url);
 
             if (!fs.existsSync(componentFilePath)) {
                 console.error('\x1b[31m', '❌ Error: components.js not found in expected path', '\x1b[0m');

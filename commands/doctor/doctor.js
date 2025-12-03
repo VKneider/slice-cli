@@ -5,6 +5,7 @@ import { createServer } from 'net';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import Print from '../Print.js';
+import { getProjectRoot, getSrcPath, getApiPath, getConfigPath, getPath } from '../utils/PathHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -34,9 +35,8 @@ async function checkNodeVersion() {
  * Verifica la estructura de directorios
  */
 async function checkDirectoryStructure() {
-    const projectRoot = path.join(__dirname, '../../../../');
-    const srcPath = path.join(projectRoot, 'src');
-    const apiPath = path.join(projectRoot, 'api');
+    const srcPath = getSrcPath(import.meta.url);
+    const apiPath = getApiPath(import.meta.url);
 
     const srcExists = await fs.pathExists(srcPath);
     const apiExists = await fs.pathExists(apiPath);
@@ -63,7 +63,7 @@ async function checkDirectoryStructure() {
  * Verifica sliceConfig.json
  */
 async function checkConfig() {
-    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+    const configPath = getConfigPath(import.meta.url);
 
     if (!await fs.pathExists(configPath)) {
         return {
@@ -101,7 +101,7 @@ async function checkConfig() {
  * Verifica disponibilidad del puerto
  */
 async function checkPort() {
-    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+    const configPath = getConfigPath(import.meta.url);
     let port = 3000;
 
     try {
@@ -145,7 +145,7 @@ async function checkPort() {
  * Verifica dependencias en package.json
  */
 async function checkDependencies() {
-    const packagePath = path.join(__dirname, '../../../../package.json');
+    const packagePath = getPath(import.meta.url, '', 'package.json');
 
     if (!await fs.pathExists(packagePath)) {
         return {
@@ -189,8 +189,8 @@ async function checkDependencies() {
  * Verifica integridad de componentes
  */
 async function checkComponents() {
-    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
-    const projectRoot = path.join(__dirname, '../../../../');
+    const configPath = getConfigPath(import.meta.url);
+        const projectRoot = getProjectRoot(import.meta.url);
 
     if (!await fs.pathExists(configPath)) {
         return {
@@ -208,7 +208,7 @@ async function checkComponents() {
         let componentIssues = 0;
 
         for (const [category, { path: compPath }] of Object.entries(componentPaths)) {
-            const fullPath = path.join(projectRoot, 'src', compPath);
+            const fullPath = getSrcPath(import.meta.url, compPath);
 
             if (await fs.pathExists(fullPath)) {
                 const items = await fs.readdir(fullPath);

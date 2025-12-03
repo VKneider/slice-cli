@@ -7,6 +7,7 @@ import { minify as terserMinify } from 'terser';
 import { minify } from 'html-minifier-terser';
 import CleanCSS from 'clean-css';
 import Print from '../Print.js';
+import { getSrcPath, getDistPath, getConfigPath } from '../utils/PathHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,7 +16,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  */
 const loadConfig = () => {
   try {
-    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+    const configPath = getConfigPath(import.meta.url);
     const rawData = fs.readFileSync(configPath, 'utf-8');
     return JSON.parse(rawData);
   } catch (error) {
@@ -28,7 +29,7 @@ const loadConfig = () => {
  * Verifica dependencias necesarias para el build
  */
 async function checkBuildDependencies() {
-  const srcDir = path.join(__dirname, '../../../../src');
+  const srcDir = getSrcPath(import.meta.url);
   
   if (!await fs.pathExists(srcDir)) {
     Print.error('Source directory (/src) not found');
@@ -103,8 +104,8 @@ async function verifyBuildIntegrity(distDir) {
  * Copia sliceConfig.json al directorio dist
  */
 async function copySliceConfig() {
-  const srcConfig = path.join(__dirname, '../../../../src/sliceConfig.json');
-  const distConfig = path.join(__dirname, '../../../../dist/sliceConfig.json');
+  const srcConfig = getConfigPath(import.meta.url);
+  const distConfig = getDistPath(import.meta.url, 'sliceConfig.json');
   
   if (await fs.pathExists(srcConfig)) {
     await fs.copy(srcConfig, distConfig);
@@ -336,7 +337,7 @@ async function minifyHTML(srcPath, distPath) {
 async function createOptimizedBundle() {
   Print.buildProgress('Creating optimized bundle...');
   
-  const mainJSPath = path.join(__dirname, '../../../../dist/App/index.js');
+  const mainJSPath = getDistPath(import.meta.url, 'App', 'index.js');
   
   if (await fs.pathExists(mainJSPath)) {
     Print.success('Main bundle optimized');
@@ -389,7 +390,7 @@ async function generateBuildStats(srcDir, distDir) {
  * Analiza el build sin construir
  */
 async function analyzeBuild() {
-  const distDir = path.join(__dirname, '../../../../dist');
+  const distDir = getDistPath(import.meta.url);
   
   if (!await fs.pathExists(distDir)) {
     Print.error('No build found to analyze. Run "slice build" first.');
@@ -398,7 +399,7 @@ async function analyzeBuild() {
   
   Print.info('Analyzing production build...');
   await generateBuildStats(
-    path.join(__dirname, '../../../../src'),
+    getSrcPath(import.meta.url),
     distDir
   );
 }
@@ -413,8 +414,8 @@ export default async function buildProduction(options = {}) {
     Print.title('🔨 Building Slice.js project for production...');
     Print.newLine();
     
-    const srcDir = path.join(__dirname, '../../../../src');
-    const distDir = path.join(__dirname, '../../../../dist');
+    const srcDir = getSrcPath(import.meta.url);
+    const distDir = getDistPath(import.meta.url);
     
     if (!await fs.pathExists(srcDir)) {
       throw new Error('Source directory not found. Run "slice init" first.');
@@ -470,7 +471,7 @@ export async function serveProductionBuild(port) {
     const defaultPort = config?.server?.port || 3001;
     const finalPort = port || defaultPort;
     
-    const distDir = path.join(__dirname, '../../../../dist');
+    const distDir = getDistPath(import.meta.url);
     
     if (!await fs.pathExists(distDir)) {
       throw new Error('No production build found. Run "slice build" first.');

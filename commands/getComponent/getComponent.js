@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import inquirer from "inquirer";
 import validations from "../Validations.js";
 import Print from "../Print.js";
+import { getConfigPath, getComponentsJsPath, getPath } from "../utils/PathHelper.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,8 +20,7 @@ const COMPONENTS_REGISTRY_URL = 'https://raw.githubusercontent.com/VKneider/slic
  */
 const loadConfig = () => {
   try {
-    // ✅ CORREGIDO: Usar 4 niveles como en listComponents para compatibilidad con node_modules
-    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+    const configPath = getConfigPath(import.meta.url);
     if (!fs.existsSync(configPath)) {
       throw new Error('sliceConfig.json not found in src folder');
     }
@@ -98,8 +98,7 @@ filterOfficialComponents(allComponents) {
 
   async getLocalComponents() {
     try {
-      // ✅ CORREGIDO: Usar 4 niveles como en listComponents para compatibilidad con node_modules
-      const componentsPath = path.join(__dirname, '../../../../src/Components/components.js');
+      const componentsPath = getComponentsJsPath(import.meta.url);
       
       if (!await fs.pathExists(componentsPath)) {
         return {};
@@ -132,8 +131,7 @@ filterOfficialComponents(allComponents) {
         // ✅ CORREGIDO: Usar 4 niveles para compatibilidad con node_modules
         const isProduction = this.config?.production?.enabled === true;
         const folderSuffix = isProduction ? 'dist' : 'src';
-        
-        const componentPath = path.join(__dirname, `../../../../${folderSuffix}`, categoryPath, name);
+        const componentPath = getPath(import.meta.url, folderSuffix, categoryPath, name);
         
         if (fs.pathExistsSync(componentPath)) {
           updatableComponents.push({
@@ -180,43 +178,6 @@ filterOfficialComponents(allComponents) {
     return components;
   }
 
-  displayAvailableComponents() {
-    if (!this.componentsRegistry) {
-      Print.error('❌ No se pudo cargar el registro de componentes');
-      return;
-    }
-
-    console.log('\n📚 Componentes disponibles en el repositorio oficial de Slice.js:\n');
-
-    const visualComponents = this.getAvailableComponents('Visual');
-    const serviceComponents = this.getAvailableComponents('Service');
-
-    // ✅ SIMPLIFICADO: Solo mostrar nombres sin descripciones
-    Print.info('🎨 Visual Components (UI):');
-    Object.keys(visualComponents).forEach(name => {
-      const files = visualComponents[name].files;
-      const fileIcons = files.map(file => {
-        if (file.endsWith('.js')) return '📜';
-        if (file.endsWith('.html')) return '🌐';
-        if (file.endsWith('.css')) return '🎨';
-        return '📄';
-      }).join(' ');
-      console.log(`  • ${name} ${fileIcons}`);
-    });
-
-    Print.info('\n⚙️  Service Components (Logic):');
-    Object.keys(serviceComponents).forEach(name => {
-      console.log(`  • ${name} 📜`);
-    });
-
-    Print.newLine();
-    Print.info(`Total: ${Object.keys(visualComponents).length} Visual + ${Object.keys(serviceComponents).length} Service components`);
-
-    console.log(`\n💡 Ejemplos de uso:`);
-    console.log(`slice get Button Card Input          # Obtener componentes Visual`);
-    console.log(`slice get FetchManager --service     # Obtener componente Service`);
-    console.log(`slice sync                           # Sincronizar componentes Visual`);
-  }
 
   async downloadComponentFiles(componentName, category, targetPath) {
     const component = this.getAvailableComponents(category)[componentName];
@@ -268,6 +229,36 @@ filterOfficialComponents(allComponents) {
     }
 
     return downloadedFiles;
+  }
+
+  async updateLocalRegistrySafe(componentName, category) {
+    const componentsPath = path.join(__dirname, '../../../../src/Components/components.js');
+    try {
+      if (!await fs.pathExists(componentsPath)) {
+        const dir = path.dirname(componentsPath);
+        await fs.ensureDir(dir);
+        const initial = `const components = {};\n\nexport default components;\n`;
+        await fs.writeFile(componentsPath, initial, 'utf8');
+      }
+      const content = await fs.readFile(componentsPath, 'utf8');
+      const match = content.match(/const components = ({[\s\S]*?});/);
+      if (!match) throw new Error('Invalid components.js format in local project');
+      const componentsObj = eval('(' + match[1] + ')');
+      if (!componentsObj[componentName]) {
+        componentsObj[componentName] = category;
+        const sorted = Object.keys(componentsObj)
+          .sort()
+          .reduce((obj, key) => { obj[key] = componentsObj[key]; return obj; }, {});
+        const newContent = `const components = ${JSON.stringify(sorted, null, 2)};\n\nexport default components;\n`;
+        await fs.writeFile(componentsPath, newContent, 'utf8');
+        Print.registryUpdate(`Registered ${componentName} in local components.js`);
+      } else {
+        Print.info(`${componentName} already exists in local registry`);
+      }
+    } catch (error) {
+      Print.error(`Updating local components.js: ${error.message}`);
+      throw error;
+    }
   }
 
   async updateLocalRegistry(componentName, category) {
@@ -331,14 +322,12 @@ filterOfficialComponents(allComponents) {
                          validations.config.paths.components[category];
   
   if (hasValidConfig) {
-    // Usar validations cuando la config está disponible
     categoryPath = validations.getCategoryPath(category);
   } else {
-    // Usar rutas por defecto cuando no hay config (durante init o error)
     if (category === 'Visual') {
-      categoryPath = '/Components/Visual';
+      categoryPath = 'Components/Visual';
     } else if (category === 'Service') {
-      categoryPath = '/Components/Service';
+      categoryPath = 'Components/Service';
     } else {
       throw new Error(`Unknown category: ${category}`);
     }
@@ -347,7 +336,8 @@ filterOfficialComponents(allComponents) {
   const isProduction = this.config?.production?.enabled === true;
   const folderSuffix = isProduction ? 'dist' : 'src';
   
-  const targetPath = path.join(__dirname, `../../../../${folderSuffix}`, categoryPath, componentName);
+  const cleanCategoryPath = categoryPath ? categoryPath.replace(/^[/\\]+/, '') : '';
+  const targetPath = getPath(import.meta.url, folderSuffix, cleanCategoryPath, componentName);
 
 
 
@@ -375,8 +365,7 @@ filterOfficialComponents(allComponents) {
       // Download component files
       const downloadedFiles = await this.downloadComponentFiles(componentName, category, targetPath);
 
-      // Update components registry
-      await this.updateLocalRegistry(componentName, category);
+      await this.updateLocalRegistrySafe(componentName, category);
 
       Print.success(`${componentName} installed successfully from official repository!`);
       console.log(`📁 Location: ${folderSuffix}/${categoryPath}/${componentName}/`);

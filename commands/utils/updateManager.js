@@ -5,13 +5,41 @@ import { promisify } from "util";
 import inquirer from "inquirer";
 import ora from "ora";
 import Print from "../Print.js";
-import versionChecker from "./versionChecker.js";
+import versionChecker from "./VersionChecker.js";
+import { getProjectRoot } from "../utils/PathHelper.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const execAsync = promisify(exec);
 
 class UpdateManager {
     constructor() {
         this.packagesToUpdate = [];
+    }
+
+    async detectCliInstall() {
+        try {
+            const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+            const cliRoot = path.join(moduleDir, '../../');
+            const projectRoot = getProjectRoot(import.meta.url);
+            let globalPrefix = '';
+            try {
+                const { stdout } = await execAsync('npm config get prefix');
+                globalPrefix = stdout.toString().trim();
+            } catch {}
+            const localNodeModules = path.join(projectRoot, 'node_modules');
+            const globalNodeModules = globalPrefix ? path.join(globalPrefix, 'node_modules') : '';
+
+            if (cliRoot.startsWith(localNodeModules)) {
+                return { type: 'local', cliRoot, projectRoot, globalPrefix };
+            }
+            if (globalNodeModules && cliRoot.startsWith(globalNodeModules)) {
+                return { type: 'global', cliRoot, projectRoot, globalPrefix };
+            }
+            return { type: 'unknown', cliRoot, projectRoot, globalPrefix };
+        } catch (error) {
+            return { type: 'unknown' };
+        }
     }
 
     /**
@@ -132,13 +160,45 @@ class UpdateManager {
         return answers.packages;
     }
 
+    async buildUpdatePlan(packages) {
+        const plan = [];
+        const info = await this.detectCliInstall();
+        for (const pkg of packages) {
+            if (pkg === 'slicejs-cli') {
+                if (info.type === 'global') {
+                    plan.push({ package: pkg, target: 'global', command: 'npm install -g slicejs-cli@latest' });
+                } else {
+                    plan.push({ package: pkg, target: 'project', command: 'npm install slicejs-cli@latest' });
+                }
+            } else if (pkg === 'slicejs-web-framework') {
+                plan.push({ package: pkg, target: 'project', command: 'npm install slicejs-web-framework@latest' });
+            } else {
+                plan.push({ package: pkg, target: 'project', command: `npm install ${pkg}@latest` });
+            }
+        }
+        return plan;
+    }
+
     /**
      * Execute npm update command for a specific package
      */
     async updatePackage(packageName) {
         try {
-            const command = `npm install ${packageName}@latest`;
-            const { stdout, stderr } = await execAsync(command);
+            let command = `npm install ${packageName}@latest`;
+            let options = {};
+
+            if (packageName === 'slicejs-cli') {
+                const info = await this.detectCliInstall();
+                if (info.type === 'global') {
+                    command = `npm install -g slicejs-cli@latest`;
+                } else {
+                    options.cwd = info.projectRoot || getProjectRoot(import.meta.url);
+                }
+            } else {
+                options.cwd = getProjectRoot(import.meta.url);
+            }
+
+            const { stdout, stderr } = await execAsync(command, options);
 
             return {
                 success: true,
@@ -213,24 +273,64 @@ class UpdateManager {
             // Display available updates
             this.displayUpdates(updateInfo);
 
-            // Get packages to update
-            const packagesToUpdate = await this.promptForUpdates(updateInfo, options);
+        // Get packages to update
+        const packagesToUpdate = await this.promptForUpdates(updateInfo, options);
 
             if (!packagesToUpdate || packagesToUpdate.length === 0) {
                 Print.info('No se seleccionaron paquetes para actualizar.');
                 return false;
             }
 
-            // Confirm installation if not auto-confirmed
-            if (!options.yes && !options.cli && !options.framework) {
-                const { confirm } = await inquirer.prompt([
+        // Show plan and confirm installation if not auto-confirmed
+        let plan = await this.buildUpdatePlan(packagesToUpdate);
+        console.log('');
+        Print.info('🧭 Plan de actualización:');
+        plan.forEach(item => {
+            const where = item.target === 'global' ? 'GLOBAL' : 'PROYECTO';
+            console.log(`   • ${item.package} → ${where}`);
+            console.log(`     ${item.command}`);
+        });
+        console.log('');
+
+        const cliInfo = await this.detectCliInstall();
+        if (cliInfo.type === 'global' && !packagesToUpdate.includes('slicejs-cli')) {
+            if (!options.yes && !options.cli) {
+                const { addCli } = await inquirer.prompt([
                     {
                         type: 'confirm',
-                        name: 'confirm',
-                        message: '¿Deseas continuar con la actualización?',
+                        name: 'addCli',
+                        message: 'Se detectó CLI global. ¿Agregar la actualización global del CLI al plan?',
                         default: true
                     }
                 ]);
+                if (addCli) {
+                    packagesToUpdate.push('slicejs-cli');
+                    plan = await this.buildUpdatePlan(packagesToUpdate);
+                    console.log('');
+                    Print.info('🧭 Plan actualizado:');
+                    plan.forEach(item => {
+                        const where = item.target === 'global' ? 'GLOBAL' : 'PROYECTO';
+                        console.log(`   • ${item.package} → ${where}`);
+                        console.log(`     ${item.command}`);
+                    });
+                    console.log('');
+                }
+            } else {
+                Print.warning('CLI global detectado. Se recomienda actualizar slicejs-cli global para mantener alineado con el framework.');
+                console.log('   Sugerencia: npm install -g slicejs-cli@latest');
+                console.log('');
+            }
+        }
+
+        if (!options.yes && !options.cli && !options.framework) {
+            const { confirm } = await inquirer.prompt([
+                {
+                    type: 'confirm',
+                    name: 'confirm',
+                    message: '¿Deseas continuar con la actualización según el plan mostrado?',
+                    default: true
+                }
+            ]);
 
                 if (!confirm) {
                     Print.info('Actualización cancelada.');

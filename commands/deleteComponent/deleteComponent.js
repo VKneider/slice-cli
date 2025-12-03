@@ -2,7 +2,9 @@ import fs from 'fs-extra';
 import path from 'path';
 import Validations from '../Validations.js';
 import Print from '../Print.js';
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+import { fileURLToPath } from 'url';
+import { getSrcPath } from '../utils/PathHelper.js';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function deleteComponent(componentName, category) {
     // Validación: Nombre de componente requerido
@@ -31,10 +33,8 @@ function deleteComponent(componentName, category) {
     category = flagCategory.category;
     
     const categoryPath = Validations.getCategoryPath(category);
-
-    // Construir la ruta del directorio del componente
-    let componentDir = path.join(__dirname, '../../../../src/', categoryPath, componentName);
-    componentDir = componentDir.slice(1);
+    const categoryPathClean = categoryPath ? categoryPath.replace(/^[/\\]+/, '') : '';
+    const componentDir = getSrcPath(import.meta.url, categoryPathClean, componentName);
 
     // Verificar si el directorio del componente existe
     if (!fs.existsSync(componentDir)) {

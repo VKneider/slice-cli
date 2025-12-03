@@ -7,6 +7,7 @@ import { spawn } from 'child_process';
 import { createServer } from 'net';
 import setupWatcher, { stopWatcher } from './watchServer.js';
 import Print from '../Print.js';
+import { getConfigPath, getApiPath, getSrcPath, getDistPath } from '../utils/PathHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,7 +16,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  */
 const loadConfig = () => {
   try {
-    const configPath = path.join(__dirname, '../../../../src/sliceConfig.json');
+    const configPath = getConfigPath(import.meta.url);
     const rawData = fs.readFileSync(configPath, 'utf-8');
     return JSON.parse(rawData);
   } catch (error) {
@@ -52,7 +53,7 @@ async function isPortAvailable(port) {
  * Verifica si existe un build de producción
  */
 async function checkProductionBuild() {
-  const distDir = path.join(__dirname, '../../../../dist');
+  const distDir = getDistPath(import.meta.url);
   return await fs.pathExists(distDir);
 }
 
@@ -60,8 +61,8 @@ async function checkProductionBuild() {
  * Verifica si existe la estructura de desarrollo
  */
 async function checkDevelopmentStructure() {
-  const srcDir = path.join(__dirname, '../../../../src');
-  const apiDir = path.join(__dirname, '../../../../api');
+  const srcDir = getSrcPath(import.meta.url);
+  const apiDir = getApiPath(import.meta.url);
 
   return (await fs.pathExists(srcDir)) && (await fs.pathExists(apiDir));
 }
@@ -71,7 +72,7 @@ async function checkDevelopmentStructure() {
  */
 function startNodeServer(port, mode) {
   return new Promise((resolve, reject) => {
-    const apiIndexPath = path.join(__dirname, '../../../../api/index.js');
+    const apiIndexPath = getApiPath(import.meta.url, 'index.js');
 
     // Verificar que el archivo existe
     if (!fs.existsSync(apiIndexPath)) {

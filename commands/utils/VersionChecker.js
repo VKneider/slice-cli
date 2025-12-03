@@ -4,6 +4,7 @@ import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
 import Print from "../Print.js";
+import { getProjectRoot } from "../utils/PathHelper.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,8 +23,9 @@ class VersionChecker {
       const cliPackage = await fs.readJson(cliPackagePath);
       this.currentCliVersion = cliPackage.version;
 
-      // Get Framework version from node_modules
-      const frameworkPackagePath = path.join(__dirname, '../../../../node_modules/slicejs-web-framework/package.json');
+      // Get Framework version from project node_modules
+      const projectRoot = getProjectRoot(import.meta.url);
+      const frameworkPackagePath = path.join(projectRoot, 'node_modules', 'slicejs-web-framework', 'package.json');
       if (await fs.pathExists(frameworkPackagePath)) {
         const frameworkPackage = await fs.readJson(frameworkPackagePath);
         this.currentFrameworkVersion = frameworkPackage.version;
