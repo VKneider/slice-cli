@@ -24,8 +24,7 @@ const loadConfig = () => {
     const configPath = getConfigPath(import.meta.url);
     const rawData = fs.readFileSync(configPath, "utf-8");
     return JSON.parse(rawData);
-  } catch (error) {
-    Print.error(`Loading configuration: ${error.message}`);
+  } catch {
     return null;
   }
 };
@@ -58,7 +57,14 @@ async function runWithVersionCheck(commandFunction, ...args) {
 
 const sliceClient = program;
 
-sliceClient.version("2.6.1").description("CLI for managing Slice.js framework components");
+try {
+  const pkgPath = path.join(__dirname, "./package.json");
+  const pkgRaw = fs.readFileSync(pkgPath, "utf-8");
+  const pkg = JSON.parse(pkgRaw);
+  sliceClient.version(pkg.version).description("CLI for managing Slice.js framework components");
+} catch {
+  sliceClient.version("0.0.0").description("CLI for managing Slice.js framework components");
+}
 
 // INIT COMMAND
 sliceClient

@@ -184,13 +184,15 @@ class UpdateManager {
      */
     async updatePackage(packageName) {
         try {
-            let command = `npm install ${packageName}@latest`;
+            let installCmd = `npm install ${packageName}@latest`;
+            let uninstallCmd = `npm uninstall ${packageName}`;
             let options = {};
 
             if (packageName === 'slicejs-cli') {
                 const info = await this.detectCliInstall();
                 if (info.type === 'global') {
-                    command = `npm install -g slicejs-cli@latest`;
+                    installCmd = `npm install -g slicejs-cli@latest`;
+                    uninstallCmd = `npm uninstall -g slicejs-cli`;
                 } else {
                     options.cwd = info.projectRoot || getProjectRoot(import.meta.url);
                 }
@@ -198,7 +200,12 @@ class UpdateManager {
                 options.cwd = getProjectRoot(import.meta.url);
             }
 
-            const { stdout, stderr } = await execAsync(command, options);
+            // Try uninstall first (ignore failure)
+            try {
+                await execAsync(uninstallCmd, options);
+            } catch {}
+
+            const { stdout, stderr } = await execAsync(installCmd, options);
 
             return {
                 success: true,
