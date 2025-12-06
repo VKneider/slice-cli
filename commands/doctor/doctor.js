@@ -9,6 +9,7 @@ import inquirer from 'inquirer';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { getProjectRoot, getSrcPath, getApiPath, getConfigPath, getPath } from '../utils/PathHelper.js';
+import updateManager from '../utils/updateManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -148,7 +149,8 @@ async function checkPort() {
  * Verifica dependencias en package.json
  */
 async function checkDependencies() {
-    const packagePath = getPath(import.meta.url, '', 'package.json');
+    const projectRoot = getProjectRoot(import.meta.url);
+    const packagePath = path.join(projectRoot, 'package.json');
 
     if (!await fs.pathExists(packagePath)) {
         return {
@@ -160,18 +162,18 @@ async function checkDependencies() {
 
     try {
         const pkg = await fs.readJson(packagePath);
-        const hasCli = pkg.dependencies?.['slicejs-cli'] || pkg.devDependencies?.['slicejs-cli'];
-        const hasFramework = pkg.dependencies?.['slicejs-web-framework'];
+        const hasFrameworkDep = pkg.dependencies?.['slicejs-web-framework'] || pkg.devDependencies?.['slicejs-web-framework'];
+        const frameworkNodePath = path.join(projectRoot, 'node_modules', 'slicejs-web-framework', 'package.json');
+        const hasFrameworkNode = await fs.pathExists(frameworkNodePath);
+        const hasFramework = !!(hasFrameworkDep || hasFrameworkNode);
 
-        if (hasCli && hasFramework) {
+        if (hasFramework) {
             return {
                 pass: true,
-                message: 'All required dependencies are installed'
+                message: 'Required framework dependency is installed'
             };
         } else {
-            const missing = [];
-            if (!hasCli) missing.push('slicejs-cli');
-            if (!hasFramework) missing.push('slicejs-web-framework');
+            const missing = ['slicejs-web-framework'];
 
             return {
                 warn: true,
@@ -334,9 +336,7 @@ export default async function runDiagnostics() {
         if (confirmInstall) {
             for (const pkg of depsResult.missing) {
                 try {
-                    const cmd = pkg === 'slicejs-cli'
-                        ? 'npm install -D slicejs-cli@latest'
-                        : 'npm install slicejs-web-framework@latest';
+                    const cmd = 'npm install slicejs-web-framework@latest';
                     Print.info(`Installing ${pkg}...`);
                     await execAsync(cmd, { cwd: projectRoot });
                     Print.success(`${pkg} installed`);

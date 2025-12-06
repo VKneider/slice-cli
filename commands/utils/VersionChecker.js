@@ -111,7 +111,7 @@ class VersionChecker {
 
       if (!silent && (cliStatus === 'outdated' || frameworkStatus === 'outdated')) {
         console.log(''); // Line break
-        Print.warning('📦 Actualizaciones Disponibles:');
+        Print.warning('📦 Available Updates:');
         
         if (cliStatus === 'outdated') {
           console.log(`   🔧 CLI: ${current.cli} → ${latest.cli}`);
@@ -142,7 +142,7 @@ class VersionChecker {
     const current = await this.getCurrentVersions();
     const latest = await this.getLatestVersions();
     
-    console.log('\n📋 Información de Versiones:');
+    console.log('\n📋 Version Information:');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     if (current?.cli) {

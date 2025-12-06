@@ -14,6 +14,16 @@ function candidates(moduleUrl) {
 }
 
 function resolveProjectRoot(moduleUrl) {
+  const initCwd = process.env.INIT_CWD
+  if (initCwd && fs.pathExistsSync(initCwd)) {
+    return initCwd
+  }
+
+  const cwd = process.cwd()
+  if (cwd && fs.pathExistsSync(cwd)) {
+    return cwd
+  }
+
   const dirs = candidates(moduleUrl)
   for (const root of dirs) {
     const hasSrc = fs.pathExistsSync(path.join(root, 'src'))

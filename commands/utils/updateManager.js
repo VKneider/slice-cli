@@ -95,7 +95,7 @@ class UpdateManager {
         }
 
         console.log('');
-        Print.warning('📦 Actualizaciones Disponibles:');
+        Print.warning('📦 Available Updates:');
         console.log('');
 
         updateInfo.updates.forEach(pkg => {
@@ -146,11 +146,11 @@ class UpdateManager {
             {
                 type: 'checkbox',
                 name: 'packages',
-                message: '¿Qué paquetes deseas actualizar?',
+                message: 'Which packages do you want to update?',
                 choices,
                 validate: (answer) => {
                     if (answer.length === 0) {
-                        return 'Debes seleccionar al menos un paquete';
+                        return 'You must select at least one package';
                     }
                     return true;
                 }
@@ -229,22 +229,22 @@ class UpdateManager {
         const results = [];
 
         for (const packageName of packages) {
-            const spinner = ora(`Actualizando ${packageName}...`).start();
+            const spinner = ora(`Updating ${packageName}...`).start();
 
             try {
                 const result = await this.updatePackage(packageName);
 
                 if (result.success) {
-                    spinner.succeed(`${packageName} actualizado exitosamente`);
+                    spinner.succeed(`${packageName} updated successfully`);
                     results.push({ packageName, success: true });
                 } else {
-                    spinner.fail(`Error actualizando ${packageName}`);
-                    Print.error(`Detalles: ${result.error}`);
+                    spinner.fail(`Error updating ${packageName}`);
+                    Print.error(`Details: ${result.error}`);
                     results.push({ packageName, success: false, error: result.error });
                 }
             } catch (error) {
-                spinner.fail(`Error actualizando ${packageName}`);
-                Print.error(`Detalles: ${error.message}`);
+                spinner.fail(`Error updating ${packageName}`);
+                Print.error(`Details: ${error.message}`);
                 results.push({ packageName, success: false, error: error.message });
             }
         }
@@ -256,24 +256,24 @@ class UpdateManager {
      * Main method to check and prompt for updates
      */
     async checkAndPromptUpdates(options = {}) {
-        const spinner = ora('Verificando actualizaciones...').start();
+        const spinner = ora('Checking for updates...').start();
 
         try {
             const updateInfo = await this.checkForUpdates();
             spinner.stop();
 
             if (!updateInfo) {
-                Print.error('No se pudo verificar actualizaciones. Verifica tu conexión a internet.');
+                Print.error('Could not check for updates. Verify your internet connection.');
                 return false;
             }
 
             if (updateInfo.allCurrent) {
-                Print.success('✅ Todos los componentes están actualizados!');
+                Print.success('✅ All components are up to date!');
                 return true;
             }
 
             if (!updateInfo.hasUpdates) {
-                Print.success('✅ Todos los componentes están actualizados!');
+                Print.success('✅ All components are up to date!');
                 return true;
             }
 
@@ -284,16 +284,16 @@ class UpdateManager {
         const packagesToUpdate = await this.promptForUpdates(updateInfo, options);
 
             if (!packagesToUpdate || packagesToUpdate.length === 0) {
-                Print.info('No se seleccionaron paquetes para actualizar.');
+                Print.info('No packages selected for update.');
                 return false;
             }
 
         // Show plan and confirm installation if not auto-confirmed
         let plan = await this.buildUpdatePlan(packagesToUpdate);
         console.log('');
-        Print.info('🧭 Plan de actualización:');
+        Print.info('🧭 Update plan:');
         plan.forEach(item => {
-            const where = item.target === 'global' ? 'GLOBAL' : 'PROYECTO';
+            const where = item.target === 'global' ? 'GLOBAL' : 'PROJECT';
             console.log(`   • ${item.package} → ${where}`);
             console.log(`     ${item.command}`);
         });
@@ -306,25 +306,25 @@ class UpdateManager {
                     {
                         type: 'confirm',
                         name: 'addCli',
-                        message: 'Se detectó CLI global. ¿Agregar la actualización global del CLI al plan?',
-                        default: true
-                    }
-                ]);
+                    message: 'Global CLI detected. Add the global CLI update to the plan?',
+                    default: true
+                }
+            ]);
                 if (addCli) {
                     packagesToUpdate.push('slicejs-cli');
                     plan = await this.buildUpdatePlan(packagesToUpdate);
                     console.log('');
-                    Print.info('🧭 Plan actualizado:');
+                    Print.info('🧭 Updated plan:');
                     plan.forEach(item => {
-                        const where = item.target === 'global' ? 'GLOBAL' : 'PROYECTO';
+                        const where = item.target === 'global' ? 'GLOBAL' : 'PROJECT';
                         console.log(`   • ${item.package} → ${where}`);
                         console.log(`     ${item.command}`);
                     });
                     console.log('');
                 }
             } else {
-                Print.warning('CLI global detectado. Se recomienda actualizar slicejs-cli global para mantener alineado con el framework.');
-                console.log('   Sugerencia: npm install -g slicejs-cli@latest');
+                Print.warning('Global CLI detected. It is recommended to update slicejs-cli globally to keep aligned with the framework.');
+                console.log('   Suggestion: npm install -g slicejs-cli@latest');
                 console.log('');
             }
         }
@@ -334,19 +334,19 @@ class UpdateManager {
                 {
                     type: 'confirm',
                     name: 'confirm',
-                    message: '¿Deseas continuar con la actualización según el plan mostrado?',
+                    message: 'Do you want to proceed with the update according to the plan shown?',
                     default: true
                 }
             ]);
 
                 if (!confirm) {
-                    Print.info('Actualización cancelada.');
+                    Print.info('Update cancelled.');
                     return false;
                 }
             }
 
             console.log(''); // Line break
-            Print.info('📥 Instalando actualizaciones...');
+            Print.info('📥 Installing updates...');
             console.log('');
 
             // Install updates
@@ -358,21 +358,21 @@ class UpdateManager {
             const failCount = results.filter(r => !r.success).length;
 
             if (failCount === 0) {
-                Print.success(`✅ ${successCount} paquete(s) actualizado(s) exitosamente!`);
+                Print.success(`✅ ${successCount} package(s) updated successfully!`);
             } else {
-                Print.warning(`⚠️  ${successCount} exitoso(s), ${failCount} fallido(s)`);
+                Print.warning(`⚠️  ${successCount} successful, ${failCount} failed`);
             }
 
             if (successCount > 0) {
                 console.log('');
-                Print.info('💡 Se recomienda reiniciar el servidor de desarrollo si está ejecutándose.');
+                Print.info('💡 It is recommended to restart the development server if it is running.');
             }
 
             return failCount === 0;
 
         } catch (error) {
             spinner.stop();
-            Print.error(`Error durante la actualización: ${error.message}`);
+            Print.error(`Error during update: ${error.message}`);
             return false;
         }
     }

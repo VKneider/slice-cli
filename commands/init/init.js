@@ -48,18 +48,17 @@ export default async function initializeProject(projectType) {
         const srcDir = path.join(sliceBaseDir, 'src');
 
         try {
-            // Verificar si los directorios de destino ya existen
-            if (fs.existsSync(destinationApi)) throw new Error(`El directorio "api" ya existe: ${destinationApi}`);
-            if (fs.existsSync(destinationSrc)) throw new Error(`El directorio "src" ya existe: ${destinationSrc}`);
+            if (fs.existsSync(destinationApi)) throw new Error(`The "api" directory already exists: ${destinationApi}`);
+            if (fs.existsSync(destinationSrc)) throw new Error(`The "src" directory already exists: ${destinationSrc}`);
         } catch (error) {
-            Print.error('Error validando directorios de destino:', error.message);
+            Print.error('Validating destination directories:', error.message);
             return;
         }
 
         // 1. COPIAR LA CARPETA API (mantener lógica original)
         const apiSpinner = ora('Copying API structure...').start();
         try {
-            if (!fs.existsSync(apiDir)) throw new Error(`No se encontró la carpeta api: ${apiDir}`);
+            if (!fs.existsSync(apiDir)) throw new Error(`API folder not found: ${apiDir}`);
             await fs.copy(apiDir, destinationApi, { recursive: true });
             apiSpinner.succeed('API structure created successfully');
         } catch (error) {
@@ -71,7 +70,7 @@ export default async function initializeProject(projectType) {
         // 2. CREAR ESTRUCTURA SRC BÁSICA (sin copiar componentes Visual)
         const srcSpinner = ora('Creating src structure...').start();
         try {
-            if (!fs.existsSync(srcDir)) throw new Error(`No se encontró la carpeta src: ${srcDir}`);
+            if (!fs.existsSync(srcDir)) throw new Error(`src folder not found: ${srcDir}`);
 
             // Copiar solo los archivos base de src, excluyendo Components/Visual
             await fs.ensureDir(destinationSrc);
@@ -95,19 +94,19 @@ export default async function initializeProject(projectType) {
                             const destComponentItemPath = path.join(destItemPath, componentItem);
 
                             if (componentItem !== 'Visual') {
-                                // Copiar Service y otros tipos de components
+                                // Copy Service and other component types
                                 await fs.copy(componentItemPath, destComponentItemPath, { recursive: true });
                             } else {
-                                // Solo crear el directorio Visual vacío
+                                // Only create empty Visual directory
                                 await fs.ensureDir(destComponentItemPath);
                             }
                         }
                     } else {
-                        // Copiar otras carpetas normalmente
+                        // Copy other folders normally
                         await fs.copy(srcItemPath, destItemPath, { recursive: true });
                     }
                 } else {
-                    // Copiar archivos normalmente
+                    // Copy files normally
                     await fs.copy(srcItemPath, destItemPath);
                 }
             }
@@ -143,15 +142,15 @@ export default async function initializeProject(projectType) {
                 if (successful > 0 && failed === 0) {
                     componentsSpinner.succeed(`All ${successful} Visual components installed successfully`);
                 } else if (successful > 0) {
-                    componentsSpinner.warn(`${successful} components installed, ${failed} failed`);
-                    Print.info('You can install failed components later using "slice get <component-name>"');
-                } else {
-                    componentsSpinner.fail('Failed to install Visual components');
-                }
+                componentsSpinner.warn(`${successful} components installed, ${failed} failed`);
+                Print.info('You can install failed components later using "slice get <component-name>"');
             } else {
-                componentsSpinner.warn('No Visual components found in registry');
-                Print.info('You can add components later using "slice get <component-name>"');
+                componentsSpinner.fail('Failed to install Visual components');
             }
+        } else {
+            componentsSpinner.warn('No Visual components found in registry');
+            Print.info('You can add components later using "slice get <component-name>"');
+        }
 
         } catch (error) {
             componentsSpinner.fail('Could not download Visual components from official repository');
@@ -223,11 +222,11 @@ export default async function initializeProject(projectType) {
             console.log('  npm run get            - Install components');
             console.log('  npm run browse         - Browse components');
         } catch (error) {
-            pkgSpinner.fail('Failed to configure npm scripts');
-            Print.error(error.message);
+        pkgSpinner.fail('Failed to configure npm scripts');
+        Print.error(error.message);
         }
 
-        Print.success('Proyecto inicializado correctamente.');
+        Print.success('Project initialized successfully.');
         Print.newLine();
         Print.info('Next steps:');
         console.log('  slice browse          - View available components');
@@ -235,7 +234,7 @@ export default async function initializeProject(projectType) {
         console.log('  slice sync            - Update all components to latest versions');
 
     } catch (error) {
-        Print.error('Error inesperado al inicializar el proyecto:', error.message);
+        Print.error('Unexpected error initializing project:', error.message);
     }
 }
 

@@ -7,6 +7,7 @@ import inquirer from "inquirer";
 import validations from "../Validations.js";
 import Print from "../Print.js";
 import { getConfigPath, getComponentsJsPath, getPath } from "../utils/PathHelper.js";
+import ora from "ora";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -188,32 +189,51 @@ filterOfficialComponents(allComponents) {
 
     const downloadedFiles = [];
     const failedFiles = [];
-    Print.info(`Downloading ${componentName} from official repository...`);
-
-    for (const fileName of component.files) {
-      const githubUrl = `${DOCS_REPO_BASE_URL}/${category}/${componentName}/${fileName}`;
-      const localPath = path.join(targetPath, fileName);
-
-      try {
-        const response = await fetch(githubUrl);
-        
-        if (!response.ok) {
-          Print.downloadError(fileName, `HTTP ${response.status}: ${response.statusText}`);
-          failedFiles.push(fileName);
-          continue; // ✅ CONTINUAR en lugar de lanzar error
+    const total = component.files.length;
+    let done = 0;
+    const spinner = ora(`Downloading ${componentName} 0/${total}`).start();
+    const fetchWithRetry = async (url, retries = 3, baseDelay = 500) => {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          return await response.text();
+        } catch (e) {
+          if (attempt === retries) throw e;
+          const delay = baseDelay * Math.pow(2, attempt);
+          await new Promise(r => setTimeout(r, delay));
         }
-
-        const content = await response.text();
+      }
+    };
+    const worker = async (fileName) => {
+      const url = `${DOCS_REPO_BASE_URL}/${category}/${componentName}/${fileName}`;
+      const localPath = path.join(targetPath, fileName);
+      try {
+        const content = await fetchWithRetry(url);
         await fs.writeFile(localPath, content, 'utf8');
         downloadedFiles.push(fileName);
-        
         Print.downloadSuccess(fileName);
       } catch (error) {
         Print.downloadError(fileName, error.message);
         failedFiles.push(fileName);
-        continue; // ✅ CONTINUAR en lugar de lanzar error
+      } finally {
+        done += 1;
+        spinner.text = `Downloading ${componentName} ${done}/${total}`;
       }
-    }
+    };
+    const runConcurrent = async (items, concurrency = 3) => {
+      let index = 0;
+      const runners = Array(Math.min(concurrency, items.length)).fill(0).map(async () => {
+        while (true) {
+          const i = index++;
+          if (i >= items.length) break;
+          await worker(items[i]);
+        }
+      });
+      await Promise.all(runners);
+    };
+    await runConcurrent(component.files, 3);
+    spinner.stop();
 
     // ✅ NUEVO: Solo lanzar error si NO se descargó el archivo principal (.js)
     const mainFileDownloaded = downloadedFiles.some(file => file.endsWith('.js'));
@@ -311,7 +331,7 @@ filterOfficialComponents(allComponents) {
      const availableComponents = this.getAvailableComponents(category);
 
   if (!availableComponents[componentName]) {
-    throw new Error(`Componente '${componentName}' no encontrado en la categoría '${category}' del repositorio oficial`);
+    throw new Error(`Component '${componentName}' not found in category '${category}' in the official repository`);
   }
 
   // ✅ MEJORADO: Detectar si validations tiene acceso a la configuración
@@ -347,7 +367,7 @@ filterOfficialComponents(allComponents) {
         {
           type: 'confirm',
           name: 'overwrite',
-          message: `El componente '${componentName}' ya existe localmente. ¿Deseas sobrescribirlo con la versión del repositorio?`,
+          message: `The component '${componentName}' already exists locally. Overwrite with the repository version?`,
           default: false
         }
       ]);
@@ -395,16 +415,34 @@ filterOfficialComponents(allComponents) {
   async installMultipleComponents(componentNames, category = 'Visual', force = false) {
     const results = [];
     Print.info(`Getting ${componentNames.length} ${category} components from official repository...`);
-
-    for (const componentName of componentNames) {
+    const total = componentNames.length;
+    let done = 0;
+    const spinner = ora(`Installing 0/${total}`).start();
+    const worker = async (componentName) => {
       try {
         const result = await this.installComponent(componentName, category, force);
         results.push({ name: componentName, success: result });
       } catch (error) {
         Print.componentError(componentName, 'getting', error.message);
         results.push({ name: componentName, success: false, error: error.message });
+      } finally {
+        done += 1;
+        spinner.text = `Installing ${done}/${total}`;
       }
-    }
+    };
+    const runConcurrent = async (items, concurrency = 3) => {
+      let index = 0;
+      const runners = Array(Math.min(concurrency, items.length)).fill(0).map(async () => {
+        while (true) {
+          const i = index++;
+          if (i >= items.length) break;
+          await worker(items[i]);
+        }
+      });
+      await Promise.all(runners);
+    };
+    await runConcurrent(componentNames, 3);
+    spinner.stop();
 
     // Summary
     const successful = results.filter(r => r.success).length;
@@ -492,11 +530,11 @@ filterOfficialComponents(allComponents) {
 
   displayAvailableComponents() {
     if (!this.componentsRegistry) {
-      Print.error('❌ No se pudo cargar el registro de componentes');
+      Print.error('❌ Could not load component registry');
       return;
     }
 
-    console.log('\n📚 Componentes disponibles en el repositorio oficial de Slice.js:\n');
+    console.log('\n📚 Available components in the official Slice.js repository:\n');
 
     const visualComponents = this.getAvailableComponents('Visual');
     const serviceComponents = this.getAvailableComponents('Service');
@@ -522,10 +560,10 @@ filterOfficialComponents(allComponents) {
     Print.newLine();
     Print.info(`Total: ${Object.keys(visualComponents).length} Visual + ${Object.keys(serviceComponents).length} Service components`);
 
-    console.log(`\n💡 Ejemplos de uso:`);
-    console.log(`slice get Button Card Input          # Obtener componentes Visual`);
-    console.log(`slice get FetchManager --service     # Obtener componente Service`);
-    console.log(`slice sync                           # Sincronizar componentes Visual`);
+    console.log(`\n💡 Usage examples:`);
+    console.log(`slice get Button Card Input          # Install Visual components`);
+    console.log(`slice get FetchManager --service     # Install Service component`);
+    console.log(`slice sync                           # Sync Visual components`);
   }
 
   async interactiveInstall() {
@@ -533,7 +571,7 @@ filterOfficialComponents(allComponents) {
       {
         type: 'list',
         name: 'componentType',
-        message: 'Selecciona el tipo de componente a obtener del repositorio:',
+        message: 'Select the type of component to install from the repository:',
         choices: [
           { name: '🎨 Visual Components (UI)', value: 'Visual' },
           { name: '⚙️  Service Components (Logic)', value: 'Service' }
@@ -552,10 +590,10 @@ filterOfficialComponents(allComponents) {
         {
           type: 'list',
           name: 'installMode',
-          message: '¿Cómo deseas obtener los componentes Visual?',
+          message: 'How do you want to install Visual components?',
           choices: [
-            { name: 'Obtener uno solo', value: 'single' },
-            { name: 'Obtener múltiples', value: 'multiple' }
+            { name: 'Get one', value: 'single' },
+            { name: 'Get multiple', value: 'multiple' }
           ]
         }
       ]);
@@ -565,11 +603,11 @@ filterOfficialComponents(allComponents) {
           {
             type: 'checkbox',
             name: 'selectedComponents',
-            message: 'Selecciona los componentes Visual a obtener del repositorio:',
+            message: 'Select Visual components to install from the repository:',
             choices: componentChoices,
             validate: (input) => {
               if (input.length === 0) {
-                return 'Debes seleccionar al menos un componente';
+                return 'You must select at least one component';
               }
               return true;
             }
@@ -582,7 +620,7 @@ filterOfficialComponents(allComponents) {
           {
             type: 'list',
             name: 'selectedComponent',
-            message: 'Selecciona un componente Visual:',
+            message: 'Select a Visual component:',
             choices: componentChoices
           }
         ]);
@@ -594,7 +632,7 @@ filterOfficialComponents(allComponents) {
         {
           type: 'list',
           name: 'selectedComponent',
-          message: 'Selecciona un componente Service:',
+          message: 'Select a Service component:',
           choices: componentChoices
         }
       ]);
