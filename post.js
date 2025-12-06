@@ -12,14 +12,14 @@ const targetRoot = initCwd || path.resolve(__dirname, '../../');
 const projectPackageJsonPath = path.join(targetRoot, 'package.json');
 
 if (isGlobal) {
-    console.log('ℹ️  Instalación global detectada de slicejs-cli.');
-    console.log('   Omite configuración de scripts. Usa el binario directamente:');
+    console.log('ℹ️  Global installation of slicejs-cli detected.');
+    console.log('   Skipping scripts setup. Use the binary directly:');
     console.log('     slice dev');
     console.log('     slice get Button');
     process.exit(0);
 }
 
-console.log('ℹ️  Instalación local detectada de slicejs-cli.');
-console.log('   Se omite configuración automática de scripts en postinstall.');
-console.log('   Usa "slice init" para configurar los scripts del proyecto.');
+console.log('ℹ️  Local installation of slicejs-cli detected.');
+console.log('   Skipping automatic scripts setup in postinstall.');
+console.log('   Use "slice init" to configure project scripts.');
 process.exit(0);

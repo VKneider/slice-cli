@@ -5,6 +5,9 @@ import { createServer } from 'net';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import Print from '../Print.js';
+import inquirer from 'inquirer';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { getProjectRoot, getSrcPath, getApiPath, getConfigPath, getPath } from '../utils/PathHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -173,7 +176,10 @@ async function checkDependencies() {
             return {
                 warn: true,
                 message: `Missing dependencies: ${missing.join(', ')}`,
-                suggestion: 'Run "npm install"'
+                suggestion: missing.includes('slicejs-web-framework')
+                    ? 'Run "npm install slicejs-web-framework@latest" in your project'
+                    : 'Run "npm install -D slicejs-cli@latest" in your project',
+                missing
             };
         }
     } catch (error) {
@@ -312,6 +318,34 @@ export default async function runDiagnostics() {
 
     Print.newLine();
     Print.separator();
+
+    const depsResult = results.find(r => r.name === 'Dependencies');
+    if (depsResult && depsResult.warn && Array.isArray(depsResult.missing) && depsResult.missing.length > 0) {
+        const projectRoot = getProjectRoot(import.meta.url);
+        const execAsync = promisify(exec);
+        const { confirmInstall } = await inquirer.prompt([
+            {
+                type: 'confirm',
+                name: 'confirmInstall',
+                message: `Install missing dependencies in this project now? (${depsResult.missing.join(', ')})`,
+                default: true
+            }
+        ]);
+        if (confirmInstall) {
+            for (const pkg of depsResult.missing) {
+                try {
+                    const cmd = pkg === 'slicejs-cli'
+                        ? 'npm install -D slicejs-cli@latest'
+                        : 'npm install slicejs-web-framework@latest';
+                    Print.info(`Installing ${pkg}...`);
+                    await execAsync(cmd, { cwd: projectRoot });
+                    Print.success(`${pkg} installed`);
+                } catch (e) {
+                    Print.error(`Installing ${pkg}: ${e.message}`);
+                }
+            }
+        }
+    }
 
     if (issues === 0 && warnings === 0) {
         Print.success('All checks passed! 🎉');

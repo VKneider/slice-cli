@@ -13,7 +13,9 @@ import updateManager from "./commands/utils/updateManager.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { getConfigPath } from "./commands/utils/PathHelper.js";
+import { getConfigPath, getProjectRoot } from "./commands/utils/PathHelper.js";
+import { exec } from "child_process";
+import { promisify } from "util";
 import validations from "./commands/Validations.js";
 import Print from "./commands/Print.js";
 
@@ -37,6 +39,49 @@ const getCategories = () => {
 // Function to run version check for all commands
 async function runWithVersionCheck(commandFunction, ...args) {
   try {
+    const execAsync = promisify(exec);
+    await (async () => {
+      try {
+        const info = await updateManager.detectCliInstall();
+        if (info && info.type === 'global') {
+          const projectRoot = getProjectRoot(import.meta.url);
+          const pkgPath = path.join(projectRoot, 'package.json');
+          let hasPkg = fs.existsSync(pkgPath);
+          if (!hasPkg) {
+            const { confirmInit } = await inquirer.prompt([
+              {
+                type: 'confirm',
+                name: 'confirmInit',
+                message: 'No package.json found. Initialize npm in this project now?',
+                default: true
+              }
+            ]);
+            if (confirmInit) {
+              await execAsync('npm init -y', { cwd: projectRoot });
+              hasPkg = true;
+            }
+          }
+          if (hasPkg) {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+            const hasFramework = pkg.dependencies?.['slicejs-web-framework'];
+            if (!hasFramework) {
+              const { confirm } = await inquirer.prompt([
+                {
+                  type: 'confirm',
+                  name: 'confirm',
+                  message: 'slicejs-web-framework is not installed in this project. Install it now?',
+                  default: true
+                }
+              ]);
+              if (confirm) {
+                await updateManager.updatePackage('slicejs-web-framework');
+              }
+            }
+          }
+        }
+      } catch {}
+    })();
+
     const updateInfo = await updateManager.checkForUpdates();
     if (updateInfo && updateInfo.hasUpdates) {
       await updateManager.checkAndPromptUpdates({});
