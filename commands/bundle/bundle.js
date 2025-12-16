@@ -19,6 +19,10 @@ export default async function bundle(options = {}) {
     // Validate that it's a Slice.js project
     await validateProject(projectRoot);
 
+    // Create default bundle config if needed
+    const bundleGenerator = new BundleGenerator(import.meta.url, null);
+    await bundleGenerator.createDefaultBundleConfig();
+
     // Phase 1: Analysis
     Print.buildProgress('Analyzing project...');
     const analyzer = new DependencyAnalyzer(import.meta.url);
@@ -110,7 +114,8 @@ function printSummary(result, startTime) {
 
     for (const [key, bundle] of Object.entries(bundles.routes)) {
       console.log(`   ${key}:`);
-      console.log(`     Route: ${bundle.path}`);
+      const routeDisplay = Array.isArray(bundle.path) ? `${bundle.path.length} routes` : (bundle.path || key);
+      console.log(`     Route: ${routeDisplay}`);
       console.log(`     Components: ${bundle.components.length}`);
       console.log(`     Size: ${(bundle.size / 1024).toFixed(1)} KB`);
       console.log(`     File: ${bundle.file}`);

@@ -62,8 +62,8 @@ export default class DependencyAnalyzer {
     // Read and parse components.js
     const content = await fs.readFile(componentsConfigPath, 'utf-8');
 
-    // Extract configuration using simple regex
-    const configMatch = content.match(/export default\s*({[\s\S]*})/);
+    // Extract configuration using simple regex - look for the components object
+    const configMatch = content.match(/const components\s*=\s*({[\s\S]*?});/);
     if (!configMatch) {
       throw new Error('Could not parse components.js');
     }
@@ -71,9 +71,26 @@ export default class DependencyAnalyzer {
     // Evaluate safely (in production use a more robust parser)
     const config = eval(`(${configMatch[1]})`);
 
-    // Save category metadata
-    for (const [category, info] of Object.entries(config)) {
-      const categoryPath = path.join(this.componentsPath, info.path.replace('../', ''));
+    // Group components by category
+    const categoryMap = new Map();
+
+    // Build category map from component assignments
+    for (const [componentName, categoryName] of Object.entries(config)) {
+      if (!categoryMap.has(categoryName)) {
+        categoryMap.set(categoryName, []);
+      }
+      categoryMap.get(categoryName).push(componentName);
+    }
+
+    // Process each category
+    for (const [categoryName, componentList] of categoryMap) {
+      // Determine category type based on category name
+      let categoryType = 'Visual'; // default
+      if (categoryName === 'Service') categoryType = 'Service';
+      if (categoryName === 'AppComponents') categoryType = 'Visual'; // AppComponents are visual
+
+      // Find category path
+      const categoryPath = path.join(this.componentsPath, categoryName);
 
       if (await fs.pathExists(categoryPath)) {
         const files = await fs.readdir(categoryPath);
@@ -82,11 +99,11 @@ export default class DependencyAnalyzer {
           const componentPath = path.join(categoryPath, file);
           const stat = await fs.stat(componentPath);
 
-          if (stat.isDirectory()) {
+          if (stat.isDirectory() && componentList.includes(file)) {
             this.components.set(file, {
               name: file,
-              category,
-              categoryType: info.type,
+              category: categoryName,
+              categoryType: categoryType,
               path: componentPath,
               dependencies: new Set(),
               usedBy: new Set(),
