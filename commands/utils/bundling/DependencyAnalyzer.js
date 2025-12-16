@@ -45,6 +45,7 @@ export default class DependencyAnalyzer {
       components: Array.from(this.components.values()),
       routes: Array.from(this.routes.values()),
       dependencyGraph: this.dependencyGraph,
+      routeGroups: this.routeGroups,
       metrics
     };
   }
@@ -153,8 +154,33 @@ export default class DependencyAnalyzer {
         CallExpression(path) {
           const { callee, arguments: args } = path.node;
 
-          // slice.build('ComponentName', ...)
+          // slice.build('MultiRoute', { routes: [...] })
           if (
+            callee.type === 'MemberExpression' &&
+            callee.object.name === 'slice' &&
+            callee.property.name === 'build' &&
+            args[0]?.type === 'StringLiteral' &&
+            args[0].value === 'MultiRoute' &&
+            args[1]?.type === 'ObjectExpression'
+          ) {
+            // Add MultiRoute itself
+            dependencies.add('MultiRoute');
+
+            // Extract routes from MultiRoute props
+            const routesProp = args[1].properties.find(p => p.key?.name === 'routes');
+            if (routesProp?.value?.type === 'ArrayExpression') {
+              routesProp.value.elements.forEach(routeElement => {
+                if (routeElement.type === 'ObjectExpression') {
+                  const componentProp = routeElement.properties.find(p => p.key?.name === 'component');
+                  if (componentProp?.value?.type === 'StringLiteral') {
+                    dependencies.add(componentProp.value.value);
+                  }
+                }
+              });
+            }
+          }
+          // Regular slice.build() calls
+          else if (
             callee.type === 'MemberExpression' &&
             callee.object.name === 'slice' &&
             callee.property.name === 'build' &&
@@ -181,7 +207,7 @@ export default class DependencyAnalyzer {
   }
 
   /**
-   * Analyzes the routes file
+   * Analyzes the routes file and detects route groups
    */
   async analyzeRoutes() {
     if (!await fs.pathExists(this.routesPath)) {
@@ -189,7 +215,7 @@ export default class DependencyAnalyzer {
     }
 
     const content = await fs.readFile(this.routesPath, 'utf-8');
-    
+
     try {
       const ast = parse(content, {
         sourceType: 'module',
@@ -225,6 +251,10 @@ export default class DependencyAnalyzer {
           }
         }
       });
+
+      // Detect and store route groups based on MultiRoute usage
+      this.routeGroups = this.detectRouteGroups();
+
     } catch (error) {
       console.warn(`⚠️  Error parseando rutas: ${error.message}`);
     }
@@ -247,6 +277,40 @@ export default class DependencyAnalyzer {
         }
       }
     }
+  }
+
+  /**
+   * Detects route groups based on MultiRoute usage
+   */
+  detectRouteGroups() {
+    const routeGroups = new Map();
+
+    for (const [componentName, component] of this.components) {
+      // Check if component uses MultiRoute
+      const hasMultiRoute = Array.from(component.dependencies).includes('MultiRoute');
+
+      if (hasMultiRoute) {
+        // Find all routes that point to this component
+        const relatedRoutes = Array.from(this.routes.values())
+          .filter(route => route.component === componentName);
+
+        if (relatedRoutes.length > 1) {
+          // Group these routes together
+          const groupKey = `multiroute-${componentName}`;
+          routeGroups.set(groupKey, {
+            component: componentName,
+            routes: relatedRoutes.map(r => r.path),
+            type: 'multiroute'
+          });
+
+          // Mark component as multiroute handler
+          component.isMultiRouteHandler = true;
+          component.multiRoutePaths = relatedRoutes.map(r => r.path);
+        }
+      }
+    }
+
+    return routeGroups;
   }
 
   /**

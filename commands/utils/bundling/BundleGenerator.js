@@ -220,13 +220,66 @@ export default class BundleGenerator {
   assignHybridBundles(criticalNames) {
     const routeGroups = new Map();
 
-    // Group routes by category
-    for (const route of this.analysisData.routes) {
-      const category = this.categorizeRoute(route.path);
-      if (!routeGroups.has(category)) {
-        routeGroups.set(category, []);
+    // First, handle MultiRoute groups
+    if (this.analysisData.routeGroups) {
+      for (const [groupKey, groupData] of this.analysisData.routeGroups) {
+        if (groupData.type === 'multiroute') {
+          // Create a bundle for this MultiRoute group
+          const allComponents = new Set();
+
+          // Add the main component (MultiRoute handler)
+          const mainComponent = this.analysisData.components.find(c => c.name === groupData.component);
+          if (mainComponent) {
+            allComponents.add(mainComponent);
+
+            // Add all components used by this MultiRoute
+            const routeComponents = this.getRouteComponents(mainComponent.name);
+            for (const comp of routeComponents) {
+              allComponents.add(comp);
+              // Add transitive dependencies
+              const dependencies = this.getComponentDependencies(comp);
+              for (const dep of dependencies) {
+                allComponents.add(dep);
+              }
+            }
+          }
+
+          // Filter those already in critical
+          const uniqueComponents = Array.from(allComponents).filter(comp =>
+            !criticalNames.has(comp.name)
+          );
+
+          if (uniqueComponents.length > 0) {
+            const totalSize = uniqueComponents.reduce((sum, c) => sum + c.size, 0);
+
+            this.bundles.routes[groupKey] = {
+              paths: groupData.routes,
+              components: uniqueComponents,
+              size: totalSize,
+              file: `slice-bundle.${groupKey}.js`
+            };
+
+            console.log(`✓ Bundle ${groupKey}: ${uniqueComponents.length} components, ${(totalSize / 1024).toFixed(1)} KB (${groupData.routes.length} routes)`);
+          }
+        }
       }
-      routeGroups.get(category).push(route);
+    }
+
+    // Group remaining routes by category (skip those already handled by MultiRoute)
+    for (const route of this.analysisData.routes) {
+      // Check if this route is already handled by a MultiRoute group
+      const isHandledByMultiRoute = this.analysisData.routeGroups &&
+        Array.from(this.analysisData.routeGroups.values()).some(group =>
+          group.type === 'multiroute' && group.routes.includes(route.path)
+        );
+
+      if (!isHandledByMultiRoute) {
+        const category = this.categorizeRoute(route.path);
+        if (!routeGroups.has(category)) {
+          routeGroups.set(category, []);
+        }
+        routeGroups.get(category).push(route);
+      }
     }
 
     // Create bundles for each group
@@ -268,9 +321,19 @@ export default class BundleGenerator {
   }
 
   /**
-   * Categorizes a route path for grouping
+   * Categorizes a route path for grouping, considering MultiRoute context
    */
   categorizeRoute(routePath) {
+    // Check if this route belongs to a MultiRoute handler
+    if (this.analysisData.routeGroups) {
+      for (const [groupKey, groupData] of this.analysisData.routeGroups) {
+        if (groupData.type === 'multiroute' && groupData.routes.includes(routePath)) {
+          return groupKey; // Return the MultiRoute group key
+        }
+      }
+    }
+
+    // Default categorization
     const path = routePath.toLowerCase();
 
     if (path === '/' || path === '/home') return 'home';
@@ -461,7 +524,7 @@ export default class BundleGenerator {
         name: comp.name,
         category: comp.category,
         categoryType: comp.categoryType,
-        js: this.cleanJavaScript(jsContent),
+        js: this.cleanJavaScript(jsContent, comp.name),
         externalDependencies: dependencyContents, // Files imported with import statements
         componentDependencies: Array.from(comp.dependencies), // Other components this one depends on
         html: htmlContent,
@@ -484,14 +547,27 @@ export default class BundleGenerator {
   }
 
   /**
-   * Cleans JavaScript code by removing imports/exports
+   * Cleans JavaScript code by removing imports/exports and ensuring class is available globally
    */
-  cleanJavaScript(code) {
+  cleanJavaScript(code, componentName) {
     // Remove export default
     code = code.replace(/export\s+default\s+/g, '');
 
     // Remove imports (components will already be available)
     code = code.replace(/import\s+.*?from\s+['"].*?['"];?\s*/g, '');
+
+    // Make sure the class is available globally for bundle evaluation
+    // Preserve original customElements.define if it exists
+    if (code.includes('customElements.define')) {
+      // Add global assignment before customElements.define
+      code = code.replace(/customElements\.define\([^;]+\);?\s*$/, `window.${componentName} = ${componentName};\n$&`);
+    } else {
+      // If no customElements.define found, just assign to global
+      code += `\nwindow.${componentName} = ${componentName};`;
+    }
+
+    // Add return statement for bundle evaluation compatibility
+    code += `\nreturn ${componentName};`;
 
     return code;
   }
