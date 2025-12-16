@@ -1,6 +1,6 @@
 {
   "name": "slicejs-cli",
-  "version": "2.7.6",
+  "version": "2.7.7",
   "description": "Command client for developing web applications with Slice.js framework",
   "main": "client.js",
   "bin": {
@@ -39,5 +39,9 @@
     "ora": "^8.2.0",
     "slicejs-web-framework": "latest",
     "terser": "^5.43.1"
+  },
+  "devDependencies": {
+    "@babel/parser": "^7.28.5",
+    "@babel/traverse": "^7.28.5"
   }
 }
