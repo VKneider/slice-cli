@@ -18,6 +18,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import validations from "./commands/Validations.js";
 import Print from "./commands/Print.js";
+import bundle, { cleanBundles, bundleInfo } from './commands/bundle/bundle.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -137,12 +138,21 @@ sliceClient
   .description("Start development server")
   .option("-p, --port <port>", "Port for development server", 3000)
   .option("-w, --watch", "Enable watch mode for file changes")
+  .option("-b, --bundled", "Generate bundles before starting server")
   .action(async (options) => {
     await runWithVersionCheck(async () => {
+      // Si se solicita bundles, generarlos primero
+      if (options.bundled) {
+        Print.info("Generating bundles before starting server...");
+        await bundle({ verbose: false });
+        Print.newLine();
+      }
+
       await startServer({
-        mode: 'development',
+        mode: options.bundled ? 'bundled' : 'development',
         port: parseInt(options.port),
-        watch: options.watch
+        watch: options.watch,
+        bundled: options.bundled
       });
     });
   });
@@ -153,12 +163,21 @@ sliceClient
   .description("Start development server (alias for dev)")
   .option("-p, --port <port>", "Port for server", 3000)
   .option("-w, --watch", "Enable watch mode for file changes")
+  .option("-b, --bundled", "Generate bundles before starting server")
   .action(async (options) => {
     await runWithVersionCheck(async () => {
+      // Si se solicita bundles, generarlos primero
+      if (options.bundled) {
+        Print.info("Generating bundles before starting server...");
+        await bundle({ verbose: false });
+        Print.newLine();
+      }
+
       await startServer({
-        mode: 'development',
+        mode: options.bundled ? 'bundled' : 'development',
         port: parseInt(options.port),
-        watch: options.watch
+        watch: options.watch,
+        bundled: options.bundled
       });
     });
   });
@@ -434,13 +453,35 @@ sliceClient
     subcommandTerm: (cmd) => cmd.name() + ' ' + cmd.usage()
   });
 
+  sliceClient
+  .command('bundle')
+  .description('Generate production bundles for optimal loading')
+  .option('-a, --analyze', 'Only analyze without generating bundles')
+  .option('-v, --verbose', 'Show detailed information')
+  .action(bundle);
+
+// Subcomando: limpiar bundles
+sliceClient
+  .command('bundle:clean')
+  .description('Remove all generated bundles')
+  .action(cleanBundles);
+
+// Subcomando: información
+sliceClient
+  .command('bundle:info')
+  .description('Show information about generated bundles')
+  .action(bundleInfo);
+
+
 // Custom help - SIMPLIFICADO para development only
 sliceClient.addHelpText('after', `
 Common Usage Examples:
   slice init                     - Initialize new Slice.js project
   slice dev                      - Start development server
   slice start                    - Start development server (same as dev)
-  slice get Button Card Input    - Install Visual components from registry  
+  slice dev --bundled            - Generate bundles then start server
+  slice start --bundled          - Same as above (bundle -> start)
+  slice get Button Card Input    - Install Visual components from registry
   slice get FetchManager -s      - Install Service component from registry
   slice browse                   - Browse all available components
   slice sync                     - Update local components to latest versions
@@ -456,9 +497,10 @@ Command Categories:
   • version, update, doctor      - Maintenance commands
 
 Development Workflow:
-  • slice init    - Initialize project
-  • slice dev     - Start development server (serves from /src)
-  • slice start   - Alternative to dev command
+  • slice init          - Initialize project
+  • slice dev           - Start development server (serves from /src)
+  • slice start         - Alternative to dev command
+  • slice dev --bundled - Start with bundles (bundle -> start)
 
 Note: Production builds are disabled. Use development mode for all workflows.
 

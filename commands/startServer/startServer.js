@@ -86,6 +86,8 @@ function startNodeServer(port, mode) {
     const args = [apiIndexPath];
     if (mode === 'production') {
       args.push('--production');
+    } else if (mode === 'bundled') {
+      args.push('--bundled');
     } else {
       args.push('--development');
     }
@@ -171,7 +173,7 @@ export default async function startServer(options = {}) {
   const config = loadConfig();
   const defaultPort = config?.server?.port || 3000;
 
-  const { mode = 'development', port = defaultPort, watch = false } = options;
+  const { mode = 'development', port = defaultPort, watch = false, bundled = false } = options;
 
   try {
     Print.title(`🚀 Starting Slice.js ${mode} server...`);
@@ -190,7 +192,7 @@ export default async function startServer(options = {}) {
       throw new Error(
         `Port ${port} is already in use. Please:\n` +
         `  1. Stop the process using port ${port}, or\n` +
-        `  2. Use a different port: slice ${mode === 'development' ? 'dev' : 'start'} -p <port>`
+        `  2. Use a different port: slice ${mode === 'development' ? 'dev' : mode === 'bundled' ? 'start --bundled' : 'start'} -p <port>`
       );
     }
 
@@ -203,6 +205,8 @@ export default async function startServer(options = {}) {
         throw new Error('No production build found. Run "slice build" first.');
       }
       Print.info('Production mode: serving optimized files from /dist');
+    } else if (mode === 'bundled') {
+      Print.info('Bundled mode: serving with generated bundles for optimized loading');
     } else {
       Print.info('Development mode: serving files from /src with hot reload');
     }
