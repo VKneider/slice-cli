@@ -1,5 +1,6 @@
 // commands/startServer/startServer.js - MEJORADO CON VALIDACIÓN Y FEEDBACK
 
+import bundle from '../bundle/bundle.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -184,19 +185,17 @@ export default async function startServer(options = {}) {
       throw new Error('Project structure not found. Run "slice init" first.');
     }
 
-    // Verificar disponibilidad del puerto
-    Print.checkingPort(port);
-    const portAvailable = await isPortAvailable(port);
-
-    if (!portAvailable) {
-      throw new Error(
-        `Port ${port} is already in use. Please:\n` +
-        `  1. Stop the process using port ${port}, or\n` +
-        `  2. Use a different port: slice ${mode === 'development' ? 'dev' : mode === 'bundled' ? 'start --bundled' : 'start'} -p <port>`
-      );
+    let actualPort = await isPortAvailable(port) ? port : port + 1; // Try one more port
+    if(actualPort !== port) {
+       // Check if the fallback is available
+       const fallbackAvailable = await isPortAvailable(actualPort);
+       if(!fallbackAvailable) {
+           throw new Error(`Ports ${port} and ${actualPort} are in use.`);
+       }
+       Print.info(`ℹ️ Port ${port} in use, using ${actualPort} instead.`);
     }
 
-    Print.serverStatus('checking', 'Port available ✓');
+    Print.serverStatus('checking', `Port ${actualPort} available ✓`);
     Print.newLine();
 
     if (mode === 'production') {
@@ -214,12 +213,40 @@ export default async function startServer(options = {}) {
     Print.newLine();
 
     // Iniciar el servidor con argumentos
-    const serverProcess = await startNodeServer(port, mode);
+    let serverProcess = await startNodeServer(actualPort, mode);
 
     // Configurar watch mode si está habilitado
     if (watch) {
       Print.newLine();
-      const watcher = setupWatcher(serverProcess);
+      const watcher = setupWatcher(serverProcess, async (changedPath) => {
+        if (serverProcess) {
+             serverProcess.kill();
+        }
+        
+        // Short delay to ensure port is freed
+        await new Promise(r => setTimeout(r, 500));
+        
+        try {
+          // If we are in bundled mode, regenerate bundles before restarting
+          if (mode === 'bundled') {
+               Print.info('🔄 File changed. Regenerating bundles...');
+               try {
+                  await bundle({ verbose: false });
+               } catch (err) {
+                  Print.error('Bundle generation failed during watch restart');
+                  console.error(err);
+                  // We continue restarting anyway to show error in browser if possible, 
+                  // or maybe just to keep process alive.
+               }
+          } else {
+             Print.info('🔄 File changed. Restarting server...');
+          }
+
+          serverProcess = await startNodeServer(actualPort, mode);
+        } catch (e) {
+          Print.error(`Failed to restart server: ${e.message}`);
+        }
+      });
 
       // Cleanup en exit
       const cleanup = () => {

@@ -132,6 +132,33 @@ sliceClient
     await versionChecker.showVersionInfo();
   });
 
+// BUNDLE COMMAND
+const bundleCommand = sliceClient.command("bundle")
+  .description("Build component bundles for production")
+  .action(async (options) => {
+    await runWithVersionCheck(async () => {
+      await bundle(options);
+    });
+  });
+
+bundleCommand
+  .command("clean")
+  .description("Remove all generated bundles")
+  .action(async () => {
+    await cleanBundles();
+  });
+
+bundleCommand
+  .command("info")
+  .description("Show information about generated bundles")
+  .action(async () => {
+    await bundleInfo();
+  });
+
+bundleCommand
+  .option("-a, --analyze", "Analyze project dependencies without bundling")
+  .option("-v, --verbose", "Show detailed output");
+
 // DEV COMMAND (DEVELOPMENT) - COMANDO PRINCIPAL
 sliceClient
   .command("dev")
@@ -452,25 +479,6 @@ sliceClient
     sortSubcommands: true,
     subcommandTerm: (cmd) => cmd.name() + ' ' + cmd.usage()
   });
-
-  sliceClient
-  .command('bundle')
-  .description('Generate production bundles for optimal loading')
-  .option('-a, --analyze', 'Only analyze without generating bundles')
-  .option('-v, --verbose', 'Show detailed information')
-  .action(bundle);
-
-// Subcomando: limpiar bundles
-sliceClient
-  .command('bundle:clean')
-  .description('Remove all generated bundles')
-  .action(cleanBundles);
-
-// Subcomando: información
-sliceClient
-  .command('bundle:info')
-  .description('Show information about generated bundles')
-  .action(bundleInfo);
 
 
 // Custom help - SIMPLIFICADO para development only

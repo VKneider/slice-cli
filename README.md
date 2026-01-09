@@ -17,13 +17,37 @@
 
 ## Installation
 
-- Local (recommended):
+### Local (Recommended)
+
+1. Install as a development dependency:
 
 ```bash
 npm install slicejs-cli --save-dev
 ```
 
-- Global:
+2. Add to your `package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "slice dev",
+    "build": "slice build",
+    "slice": "slice"
+  }
+}
+```
+
+3. usage:
+
+```bash
+npm run dev
+# or pass arguments
+npm run slice -- get Button
+```
+
+### Global (Not Recommended)
+
+Global installations can lead to version mismatches and "works on my machine" issues.
 
 ```bash
 npm install -g slicejs-cli

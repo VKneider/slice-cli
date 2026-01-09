@@ -12,14 +12,14 @@ const targetRoot = initCwd || path.resolve(__dirname, '../../');
 const projectPackageJsonPath = path.join(targetRoot, 'package.json');
 
 if (isGlobal) {
-    console.log('ℹ️  Global installation of slicejs-cli detected.');
-    console.log('   Skipping scripts setup. Use the binary directly:');
-    console.log('     slice dev');
-    console.log('     slice get Button');
+    console.log('⚠️  Global installation of slicejs-cli detected.');
+    console.log('   We strongly recommend using a local installation to avoid version mismatches.');
+    console.log('   Uninstall global: npm uninstall -g slicejs-cli');
     process.exit(0);
 }
 
-console.log('ℹ️  Local installation of slicejs-cli detected.');
-console.log('   Skipping automatic scripts setup in postinstall.');
-console.log('   Use "slice init" to configure project scripts.');
+console.log('✅  slicejs-cli installed successfully.');
+console.log('   Add the CLI to your package.json scripts:');
+console.log('     "dev": "slice dev"');
+console.log('   Then run: npm run dev');
 process.exit(0);

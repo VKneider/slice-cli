@@ -524,7 +524,7 @@ export default class BundleGenerator {
         name: comp.name,
         category: comp.category,
         categoryType: comp.categoryType,
-        js: this.cleanJavaScript(jsContent, comp.name),
+        js: this.cleanJavaScript(jsContent, comp.name, comp.path),
         externalDependencies: dependencyContents, // Files imported with import statements
         componentDependencies: Array.from(comp.dependencies), // Other components this one depends on
         html: htmlContent,
@@ -547,29 +547,134 @@ export default class BundleGenerator {
   }
 
   /**
-   * Cleans JavaScript code by removing imports/exports and ensuring class is available globally
+   * Cleans JavaScript code by processing imports and ensuring class is available globally
    */
-  cleanJavaScript(code, componentName) {
-    // Remove export default
-    code = code.replace(/export\s+default\s+/g, '');
+  cleanJavaScript(code, componentName, componentPath) {
+    let newCode = code;
 
-    // Remove imports (components will already be available)
-    code = code.replace(/import\s+.*?from\s+['"].*?['"];?\s*/g, '');
+    // 1. In-line local imports to support data files and helpers
+    // Matches: import [clause] from '[path]'
+    const importRegex = /import\s+([\w\s{},*]+)\s+from\s+['"`]([\.\/][^'"`]+)['"`];?/g;
+    
+    newCode = newCode.replace(importRegex, (match, importClause, importPath) => {
+        try {
+            const absolutePath = path.resolve(componentPath, importPath);
+            
+            // Try different extensions if file doesn't exist
+            let finalPath = absolutePath;
+            if (!fs.existsSync(finalPath)) {
+                if (fs.existsSync(finalPath + '.js')) finalPath += '.js';
+                else if (fs.existsSync(finalPath + '.json')) finalPath += '.json';
+                else {
+                    console.warn(`BundleGenerator: Could not resolve ${importPath} in ${componentName}`);
+                    return `/* Fail: File not found ${importPath} */`; // return comment so regular import stripper deletes it
+                }
+            }
+            
+            let fileContent = fs.readFileSync(finalPath, 'utf-8');
+            
+            // Parse Import Clause
+            let defaultImport = null;
+            let namedImports = [];
+            
+            const cleanClause = importClause.trim();
+            
+            if (cleanClause.includes('{')) {
+                // Has named imports
+                const parts = cleanClause.split('{');
+                const preBrace = parts[0].trim(); // "Default, " or ""
+                const braceContent = parts[1].replace('}', '').trim(); // "A, B as C"
+                
+                if (preBrace) {
+                    defaultImport = preBrace.replace(',', '').trim();
+                }
+                
+                if (braceContent) {
+                    namedImports = braceContent.split(',').map(i => {
+                        const [name, alias] = i.split(/\s+as\s+/).map(s => s.trim());
+                        return { name, alias: alias || name };
+                    });
+                }
+            } else {
+                if (cleanClause.includes('*')) return match; // Skip namespace
+                defaultImport = cleanClause;
+            }
 
-    // Make sure the class is available globally for bundle evaluation
-    // Preserve original customElements.define if it exists
-    if (code.includes('customElements.define')) {
-      // Add global assignment before customElements.define
-      code = code.replace(/customElements\.define\([^;]+\);?\s*$/, `window.${componentName} = ${componentName};\n$&`);
+            // Transform exported content to local variables
+            
+            // STRATEGY: 
+            // 1. Convert all 'const/let' to 'var' to allow redeclaration (resolves naming collisions)
+            // 2. Wrap exports
+            
+            // Replace const/let with var globally to prevent "Identifier already declared" errors
+            // Use a sophisticated regex that handles:
+            // - Start of line or indentation
+            // - Previous statement termination (; or })
+            // - Optional export keyword
+            fileContent = fileContent.replace(/(^|[\s;}])(export\s+)?(const|let)(?=\s+)/gm, '$1$2var');
+
+            const defaultExportName = `__default_${path.basename(finalPath, path.extname(finalPath)).replace(/\W/g, '_')}_${Math.random().toString(36).substr(2, 5)}`;
+            
+            // Handle export default
+            if (fileContent.includes('export default')) {
+                fileContent = fileContent.replace(/export\s+default\s+/g, `var ${defaultExportName} = `);
+            } else {
+                // If no export default, but we are importing default, try to find a variable with the same name
+                // This happens in legacy data files like: const data = ...; (no export default)
+                if (defaultImport) {
+                     // Check if there is a variable matching the import name in the file content
+                     const varRegex = new RegExp(`var\\s+${defaultImport}\\s*=`);
+                     if (varRegex.test(fileContent)) {
+                         // Found it, map it to our default export name for consistency
+                         fileContent += `\nvar ${defaultExportName} = ${defaultImport};\n`;
+                     }
+                }
+            }
+            
+            // Handle named exports: remove 'export' keyword
+            fileContent = fileContent.replace(/^\s*export\s+/gm, '');
+            // Also clean up export { ... } statements
+            fileContent = fileContent.replace(/^\s*export\s*\{[^}]+\};?/gm, '');
+
+            let aliasCode = '';
+            
+            // Map Default Import
+            if (defaultImport) {
+                // Use var for alias to be safe against existing variable
+                aliasCode += `if (typeof ${defaultImport} === 'undefined') { var ${defaultImport} = (typeof ${defaultExportName} !== 'undefined') ? ${defaultExportName} : undefined; }\n`;
+            }
+            
+            // Map Named Imports with Aliases
+            namedImports.forEach(({ name, alias }) => {
+                if (name !== alias) {
+                    aliasCode += `var ${alias} = ${name};\n`;
+                }
+            });
+            
+            return `/* Inlined: ${importPath} */\n${fileContent}\n${aliasCode}`;
+        } catch (e) {
+            console.warn(`Failed to inline ${importPath} in ${componentName}: ${e.message}`);
+            return `/* Error inlining ${importPath}: ${e.message} */`;
+        }
+    });
+
+    // 2. Remove any remaining import statements (non-local or failed ones)
+    newCode = newCode.replace(/^.*import\s+.*from\s+['"`].*['"`];?.*$/gm, '');
+
+    // 3. Remove export default from the component itself
+    newCode = newCode.replace(/export\s+default\s+/g, '');
+
+    // 4. Make sure the class is available globally for bundle evaluation
+    if (newCode.includes('customElements.define')) {
+      newCode = newCode.replace(/customElements\.define\([^;]+\);?\s*$/, `window.${componentName} = ${componentName};\n$&`);
     } else {
-      // If no customElements.define found, just assign to global
-      code += `\nwindow.${componentName} = ${componentName};`;
+      newCode += `\nwindow.${componentName} = ${componentName};`;
     }
 
-    // Add return statement for bundle evaluation compatibility
-    code += `\nreturn ${componentName};`;
+    // 5. Add return statement for bundle evaluation compatibility
+    newCode += `\nreturn ${componentName};`;
 
-    return code;
+    return newCode;
   }
 
   /**
