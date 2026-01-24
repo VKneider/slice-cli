@@ -133,15 +133,279 @@ export default class DependencyAnalyzer {
       component.size = await this.calculateComponentSize(component.path);
 
       // Parse and extract dependencies
-      component.dependencies = await this.extractDependencies(content);
+      component.dependencies = await this.extractDependencies(content, jsFile);
     }
   }
 
   /**
    * Extracts dependencies from a component file
    */
-  async extractDependencies(code) {
+  async extractDependencies(code, componentFilePath = null) {
     const dependencies = new Set();
+
+    const resolveRoutesArray = (node, scope) => {
+      if (!node) return null;
+
+      if (node.type === 'ArrayExpression') {
+        return node;
+      }
+
+      if (node.type === 'ObjectExpression') {
+        const routesProp = node.properties.find(p => p.key?.name === 'routes');
+        if (routesProp?.value) {
+          return resolveRoutesArray(routesProp.value, scope);
+        }
+      }
+
+      if (node.type === 'Identifier' && scope) {
+        const binding = scope.getBinding(node.name);
+        if (!binding) return null;
+        const bindingNode = binding.path?.node;
+
+        if (bindingNode?.type === 'VariableDeclarator') {
+          const init = bindingNode.init;
+          if (init?.type === 'ArrayExpression') {
+            return init;
+          }
+
+          if (init?.type === 'Identifier') {
+            return resolveRoutesArray(init, binding.path.scope);
+          }
+
+          if (init?.type === 'ObjectExpression') {
+            return resolveRoutesArray(init, binding.path.scope);
+          }
+
+          if (init?.type === 'MemberExpression') {
+            return resolveRoutesArray(init, binding.path.scope);
+          }
+        }
+
+        if (bindingNode?.type === 'ImportSpecifier' || bindingNode?.type === 'ImportDefaultSpecifier') {
+          const parent = binding.path.parentPath?.node;
+          if (parent?.type === 'ImportDeclaration') {
+            const importedName = bindingNode.type === 'ImportDefaultSpecifier'
+              ? 'default'
+              : bindingNode.imported?.name;
+            const importedNode = resolveImportedValue(parent.source.value, importedName, componentFilePath);
+            return resolveRoutesArray(importedNode, null);
+          }
+        }
+      }
+
+      if (node.type === 'MemberExpression' && scope) {
+        const objectNode = resolveObjectExpression(node.object, scope);
+        if (objectNode) {
+          const propName = node.property?.name || node.property?.value;
+          if (propName) {
+            const prop = objectNode.properties.find(p => p.key?.name === propName || p.key?.value === propName);
+            if (prop?.value) {
+              return resolveRoutesArray(prop.value, scope);
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const resolveObjectExpression = (node, scope) => {
+      if (!node) return null;
+      if (node.type === 'ObjectExpression') return node;
+
+      if (node.type === 'Identifier' && scope) {
+        const binding = scope.getBinding(node.name);
+        const bindingNode = binding?.path?.node;
+        if (bindingNode?.type === 'VariableDeclarator') {
+          const init = bindingNode.init;
+          if (init?.type === 'ObjectExpression') {
+            return init;
+          }
+          if (init?.type === 'Identifier') {
+            return resolveObjectExpression(init, binding.path.scope);
+          }
+        }
+
+        if (bindingNode?.type === 'ImportSpecifier' || bindingNode?.type === 'ImportDefaultSpecifier') {
+          const parent = binding.path.parentPath?.node;
+          if (parent?.type === 'ImportDeclaration') {
+            const importedName = bindingNode.type === 'ImportDefaultSpecifier'
+              ? 'default'
+              : bindingNode.imported?.name;
+            const importedNode = resolveImportedValue(parent.source.value, importedName, componentFilePath);
+            return resolveObjectExpression(importedNode, null);
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const resolveStringValue = (node, scope) => {
+      if (!node) return null;
+      if (node.type === 'StringLiteral') return node.value;
+      if (node.type === 'TemplateLiteral' && node.expressions.length === 0) {
+        return node.quasis.map(q => q.value.cooked).join('');
+      }
+
+      if (node.type === 'Identifier' && scope) {
+        const binding = scope.getBinding(node.name);
+        const bindingNode = binding?.path?.node;
+        if (bindingNode?.type === 'VariableDeclarator') {
+          return resolveStringValue(bindingNode.init, binding.path.scope);
+        }
+
+        if (bindingNode?.type === 'ImportSpecifier' || bindingNode?.type === 'ImportDefaultSpecifier') {
+          const parent = binding.path.parentPath?.node;
+          if (parent?.type === 'ImportDeclaration') {
+            const importedName = bindingNode.type === 'ImportDefaultSpecifier'
+              ? 'default'
+              : bindingNode.imported?.name;
+            const importedNode = resolveImportedValue(parent.source.value, importedName, componentFilePath);
+            return resolveStringValue(importedNode, null);
+          }
+        }
+      }
+
+      if (node.type === 'MemberExpression' && scope) {
+        const objectNode = resolveObjectExpression(node.object, scope);
+        if (objectNode) {
+          const propName = node.property?.name || node.property?.value;
+          if (propName) {
+            const prop = objectNode.properties.find(p => p.key?.name === propName || p.key?.value === propName);
+            if (prop?.value) {
+              return resolveStringValue(prop.value, scope);
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const resolveImportedValue = (importPath, importedName, fromFilePath) => {
+      if (!fromFilePath) return null;
+
+      const baseDir = path.dirname(fromFilePath);
+      const resolvedPath = resolveImportPath(importPath, baseDir);
+      if (!resolvedPath) {
+        console.warn(`⚠️  Cannot resolve import for MultiRoute routes: ${importPath}`);
+        return null;
+      }
+
+      const cacheKey = `${resolvedPath}:${importedName || 'default'}`;
+      if (!resolveImportedValue.cache) {
+        resolveImportedValue.cache = new Map();
+      }
+      if (resolveImportedValue.cache.has(cacheKey)) {
+        return resolveImportedValue.cache.get(cacheKey);
+      }
+
+      try {
+        const source = fs.readFileSync(resolvedPath, 'utf-8');
+        const importAst = parse(source, {
+          sourceType: 'module',
+          plugins: ['jsx']
+        });
+
+        const topLevelBindings = new Map();
+        for (const node of importAst.program.body) {
+          if (node.type === 'VariableDeclaration') {
+            node.declarations.forEach(decl => {
+              if (decl.id?.type === 'Identifier') {
+                topLevelBindings.set(decl.id.name, decl.init);
+              }
+            });
+          }
+        }
+
+        let exportNode = null;
+        for (const node of importAst.program.body) {
+          if (node.type === 'ExportDefaultDeclaration' && importedName === 'default') {
+            exportNode = node.declaration;
+            break;
+          }
+
+          if (node.type === 'ExportNamedDeclaration') {
+            if (node.declaration?.type === 'VariableDeclaration') {
+              for (const decl of node.declaration.declarations) {
+                if (decl.id?.name === importedName) {
+                  exportNode = decl.init;
+                  break;
+                }
+              }
+            }
+
+            if (!exportNode && node.specifiers?.length) {
+              const specifier = node.specifiers.find(s => s.exported?.name === importedName);
+              if (specifier && specifier.local?.name) {
+                exportNode = topLevelBindings.get(specifier.local.name) || null;
+              }
+            }
+          }
+
+          if (exportNode) break;
+        }
+
+        if (exportNode?.type === 'Identifier') {
+          exportNode = topLevelBindings.get(exportNode.name) || exportNode;
+        }
+
+        resolveImportedValue.cache.set(cacheKey, exportNode || null);
+        return exportNode || null;
+      } catch (error) {
+        console.warn(`⚠️  Error resolving import ${importPath}: ${error.message}`);
+        resolveImportedValue.cache.set(cacheKey, null);
+        return null;
+      }
+    };
+
+    const resolveImportPath = (importPath, baseDir) => {
+      if (!importPath.startsWith('.')) return null;
+
+      const resolvedBase = path.resolve(baseDir, importPath);
+      const extensions = ['.js', '.mjs', '.cjs', '.json'];
+
+      if (fs.existsSync(resolvedBase) && fs.statSync(resolvedBase).isFile()) {
+        return resolvedBase;
+      }
+
+      if (!path.extname(resolvedBase)) {
+        for (const ext of extensions) {
+          const candidate = resolvedBase + ext;
+          if (fs.existsSync(candidate)) {
+            return candidate;
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const addMultiRouteDependencies = (routesArrayNode, scope) => {
+      if (!routesArrayNode || routesArrayNode.type !== 'ArrayExpression') return;
+
+      routesArrayNode.elements.forEach(routeElement => {
+        if (!routeElement) return;
+
+        if (routeElement.type === 'SpreadElement') {
+          const spreadArray = resolveRoutesArray(routeElement.argument, scope);
+          addMultiRouteDependencies(spreadArray, scope);
+          return;
+        }
+
+        const routeObject = resolveObjectExpression(routeElement, scope) || routeElement;
+        if (routeObject?.type === 'ObjectExpression') {
+          const componentProp = routeObject.properties.find(p => p.key?.name === 'component');
+          if (componentProp?.value) {
+            const componentName = resolveStringValue(componentProp.value, scope);
+            if (componentName) {
+              dependencies.add(componentName);
+            }
+          }
+        }
+      });
+    };
 
     try {
       const ast = parse(code, {
@@ -168,15 +432,9 @@ export default class DependencyAnalyzer {
 
             // Extract routes from MultiRoute props
             const routesProp = args[1].properties.find(p => p.key?.name === 'routes');
-            if (routesProp?.value?.type === 'ArrayExpression') {
-              routesProp.value.elements.forEach(routeElement => {
-                if (routeElement.type === 'ObjectExpression') {
-                  const componentProp = routeElement.properties.find(p => p.key?.name === 'component');
-                  if (componentProp?.value?.type === 'StringLiteral') {
-                    dependencies.add(componentProp.value.value);
-                  }
-                }
-              });
+            if (routesProp) {
+              const routesArrayNode = resolveRoutesArray(routesProp.value, path.scope);
+              addMultiRouteDependencies(routesArrayNode);
             }
           }
           // Regular slice.build() calls
