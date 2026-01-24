@@ -398,10 +398,14 @@ export default class BundleGenerator {
 
     // 2. Route bundles
     for (const [routeKey, bundle] of Object.entries(this.bundles.routes)) {
+      const routeIdentifier = Array.isArray(bundle.path || bundle.paths)
+        ? routeKey
+        : (bundle.path || bundle.paths || routeKey);
+
       const routeFile = await this.createBundleFile(
         bundle.components,
         'route',
-        bundle.path || bundle.paths || routeKey // Use routeKey as fallback for hybrid bundles
+        routeIdentifier
       );
       files.push(routeFile);
     }
@@ -627,9 +631,13 @@ if (window.slice && window.slice.controller) {
     };
 
     for (const [key, bundle] of Object.entries(this.bundles.routes)) {
+      const routeIdentifier = Array.isArray(bundle.path || bundle.paths)
+        ? key
+        : (bundle.path || bundle.paths || key);
+
       config.bundles.routes[key] = {
         path: bundle.path || bundle.paths || key, // Support both single path and array of paths, fallback to key
-        file: `slice-bundle.${this.routeToFileName(bundle.path || bundle.paths || key)}.js`,
+        file: `slice-bundle.${this.routeToFileName(routeIdentifier)}.js`,
         size: bundle.size,
         components: bundle.components.map(c => c.name),
         dependencies: ['critical']
