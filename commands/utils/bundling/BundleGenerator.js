@@ -2,6 +2,8 @@
 import fs from 'fs-extra';
 import path from 'path';
 import crypto from 'crypto';
+import { parse } from '@babel/parser';
+import traverse from '@babel/traverse';
 import { getSrcPath, getComponentsJsPath } from '../PathHelper.js';
 
 export default class BundleGenerator {
@@ -447,37 +449,74 @@ export default class BundleGenerator {
   analyzeDependencies(jsContent, componentPath) {
     const dependencies = [];
 
-    try {
-      // Simple regex to find import statements
-      const importRegex = /import\s+.*?\s+from\s+['"`]([^'"`]+)['"`]/g;
-      let match;
-
-      while ((match = importRegex.exec(jsContent)) !== null) {
-        const importPath = match[1];
-
-        // Only process relative imports (starting with ./ or ../)
-        if (importPath.startsWith('./') || importPath.startsWith('../')) {
-          // Resolve the absolute path
-          const resolvedPath = path.resolve(componentPath, importPath);
-
-          // If no extension, try common extensions
-          let finalPath = resolvedPath;
-          const ext = path.extname(resolvedPath);
-          if (!ext) {
-            const extensions = ['.js', '.json', '.mjs'];
-            for (const ext of extensions) {
-              if (fs.existsSync(resolvedPath + ext)) {
-                finalPath = resolvedPath + ext;
-                break;
-              }
-            }
-          }
-
-          if (fs.existsSync(finalPath)) {
-            dependencies.push(finalPath);
+    const resolveImportPath = (importPath) => {
+      const resolvedPath = path.resolve(componentPath, importPath);
+      let finalPath = resolvedPath;
+      const ext = path.extname(resolvedPath);
+      if (!ext) {
+        const extensions = ['.js', '.json', '.mjs'];
+        for (const extension of extensions) {
+          if (fs.existsSync(resolvedPath + extension)) {
+            finalPath = resolvedPath + extension;
+            break;
           }
         }
       }
+
+      return fs.existsSync(finalPath) ? finalPath : null;
+    };
+
+    try {
+      const ast = parse(jsContent, {
+        sourceType: 'module',
+        plugins: ['jsx']
+      });
+
+      traverse.default(ast, {
+        ImportDeclaration(pathNode) {
+          const importPath = pathNode.node.source.value;
+          if (!importPath.startsWith('./') && !importPath.startsWith('../')) {
+            return;
+          }
+
+          const resolvedPath = resolveImportPath(importPath);
+          if (!resolvedPath) {
+            return;
+          }
+
+          const bindings = pathNode.node.specifiers.map(spec => {
+            if (spec.type === 'ImportDefaultSpecifier') {
+              return {
+                type: 'default',
+                importedName: 'default',
+                localName: spec.local.name
+              };
+            }
+
+            if (spec.type === 'ImportSpecifier') {
+              return {
+                type: 'named',
+                importedName: spec.imported.name,
+                localName: spec.local.name
+              };
+            }
+
+            if (spec.type === 'ImportNamespaceSpecifier') {
+              return {
+                type: 'namespace',
+                localName: spec.local.name
+              };
+            }
+
+            return null;
+          }).filter(Boolean);
+
+          dependencies.push({
+            path: resolvedPath,
+            bindings
+          });
+        }
+      });
     } catch (error) {
       console.warn(`Warning: Could not analyze dependencies for ${componentPath}:`, error.message);
     }
@@ -500,11 +539,17 @@ export default class BundleGenerator {
       const dependencyContents = {};
 
       // Read all dependency files
-      for (const depPath of dependencies) {
+      for (const dep of dependencies) {
+        const depPath = dep.path;
         try {
           const depContent = await fs.readFile(depPath, 'utf-8');
-          const depName = path.basename(depPath, path.extname(depPath));
-          dependencyContents[depName] = depContent;
+          const depName = path
+            .relative(this.srcPath, depPath)
+            .replace(/\\/g, '/');
+          dependencyContents[depName] = {
+            content: depContent,
+            bindings: dep.bindings || []
+          };
         } catch (error) {
           console.warn(`Warning: Could not read dependency ${depPath}:`, error.message);
         }
